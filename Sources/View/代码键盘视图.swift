@@ -13,8 +13,6 @@ final class 代码键盘视图: UIInputView {
     var 换行回调: (() -> Void)?
     /// 缩进回调（插入Tab）
     var 缩进回调: (() -> Void)?
-    /// 切换到系统键盘回调
-    var 切换系统键盘回调: (() -> Void)?
 
     /// 页面标签栏
     private let 标签栏 = UIView()
@@ -22,8 +20,6 @@ final class 代码键盘视图: UIInputView {
     private let 页面滚动视图 = UIScrollView()
     /// 页面内容堆栈
     private let 页面堆栈 = UIStackView()
-    /// 底部功能行
-    private let 底部功能行 = UIView()
     /// 当前选中的标签按钮
     private var 当前标签按钮: 键盘标签按钮?
     /// 英文键盘大写模式
@@ -83,17 +79,10 @@ final class 代码键盘视图: UIInputView {
         页面堆栈.translatesAutoresizingMaskIntoConstraints = false
         页面滚动视图.addSubview(页面堆栈)
 
-        // 底部功能行
-        底部功能行.backgroundColor = .systemGray5
-        底部功能行.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(底部功能行)
-
         // 构建标签按钮
         构建标签栏()
         // 构建五个页面
         构建页面()
-        // 构建底部功能行
-        构建底部功能行()
 
         // 布局约束
         NSLayoutConstraint.activate([
@@ -105,18 +94,13 @@ final class 代码键盘视图: UIInputView {
             页面滚动视图.topAnchor.constraint(equalTo: 标签栏.bottomAnchor),
             页面滚动视图.leadingAnchor.constraint(equalTo: leadingAnchor),
             页面滚动视图.trailingAnchor.constraint(equalTo: trailingAnchor),
-            页面滚动视图.bottomAnchor.constraint(equalTo: 底部功能行.topAnchor),
+            页面滚动视图.bottomAnchor.constraint(equalTo: bottomAnchor), // 页面区域直接到底，无底部工具栏
 
             页面堆栈.topAnchor.constraint(equalTo: 页面滚动视图.topAnchor),
             页面堆栈.leadingAnchor.constraint(equalTo: 页面滚动视图.leadingAnchor),
             页面堆栈.trailingAnchor.constraint(equalTo: 页面滚动视图.trailingAnchor),
             页面堆栈.bottomAnchor.constraint(equalTo: 页面滚动视图.bottomAnchor),
-            页面堆栈.heightAnchor.constraint(equalTo: 页面滚动视图.heightAnchor),
-
-            底部功能行.leadingAnchor.constraint(equalTo: leadingAnchor),
-            底部功能行.trailingAnchor.constraint(equalTo: trailingAnchor),
-            底部功能行.bottomAnchor.constraint(equalTo: bottomAnchor),
-            底部功能行.heightAnchor.constraint(equalToConstant: 44) // 底部功能行44pt高，标准触控高度
+            页面堆栈.heightAnchor.constraint(equalTo: 页面滚动视图.heightAnchor)
         ])
     }
 
@@ -318,12 +302,28 @@ final class 代码键盘视图: UIInputView {
 
         主堆栈.addArrangedSubview(第三字母行)
 
-        // 第五行：常用符号 + 空格（弹性） + 常用符号
+        // 第五行：Tab(左下) + 符号 + 空格(弹性) + 符号 + 换行(右下)，去掉@和#
         let 符号空格行 = UIStackView()
         符号空格行.axis = .horizontal
         符号空格行.spacing = 5
         符号空格行.alignment = .fill
         符号空格行.distribution = .fill
+
+        // 左下角Tab键
+        let tab按钮 = UIButton(type: .system)
+        tab按钮.setTitle("⇥", for: .normal)
+        tab按钮.titleLabel?.font = .systemFont(ofSize: 16, weight: .regular) // 16ptTab图标
+        tab按钮.setTitleColor(.label, for: .normal)
+        tab按钮.backgroundColor = .systemGray5 // Tab键灰色底，功能键风格
+        tab按钮.layer.cornerRadius = 6
+        tab按钮.layer.shadowColor = UIColor.black.cgColor
+        tab按钮.layer.shadowOpacity = 0.15
+        tab按钮.layer.shadowOffset = CGSize(width: 0, height: 1)
+        tab按钮.layer.shadowRadius = 1
+        tab按钮.addTarget(self, action: #selector(缩进按钮点击), for: .touchUpInside)
+        tab按钮.translatesAutoresizingMaskIntoConstraints = false
+        tab按钮.widthAnchor.constraint(equalToConstant: 40).isActive = true // Tab键40pt宽
+        符号空格行.addArrangedSubview(tab按钮)
 
         // 左侧符号：, . ! ?
         for (标题, 插入) in [(",", ","), (".", "."), ("!", "!"), ("?", "?")] {
@@ -348,13 +348,29 @@ final class 代码键盘视图: UIInputView {
         空格按钮.setContentHuggingPriority(.defaultLow, for: .horizontal) // 低拥抱优先级，允许拉伸
         符号空格行.addArrangedSubview(空格按钮)
 
-        // 右侧符号：@ # & /
-        for (标题, 插入) in [("@", "@"), ("#", "#"), ("&", "&"), ("/", "/")] {
+        // 右侧符号：& /（去掉@和#）
+        for (标题, 插入) in [("&", "&"), ("/", "/")] {
             let 按钮 = 创建英文功能按钮(标题: 标题, 插入: 插入, 字号: 16)
             按钮.translatesAutoresizingMaskIntoConstraints = false
             按钮.widthAnchor.constraint(equalToConstant: 32).isActive = true // 符号键32pt宽
             符号空格行.addArrangedSubview(按钮)
         }
+
+        // 右下角换行键
+        let 换行按钮 = UIButton(type: .system)
+        换行按钮.setTitle("↵", for: .normal)
+        换行按钮.titleLabel?.font = .systemFont(ofSize: 17, weight: .regular) // 17pt换行图标
+        换行按钮.setTitleColor(.label, for: .normal)
+        换行按钮.backgroundColor = .systemGray5 // 换行键灰色底，功能键风格
+        换行按钮.layer.cornerRadius = 6
+        换行按钮.layer.shadowColor = UIColor.black.cgColor
+        换行按钮.layer.shadowOpacity = 0.15
+        换行按钮.layer.shadowOffset = CGSize(width: 0, height: 1)
+        换行按钮.layer.shadowRadius = 1
+        换行按钮.addTarget(self, action: #selector(换行按钮点击), for: .touchUpInside)
+        换行按钮.translatesAutoresizingMaskIntoConstraints = false
+        换行按钮.widthAnchor.constraint(equalToConstant: 40).isActive = true // 换行键40pt宽
+        符号空格行.addArrangedSubview(换行按钮)
 
         主堆栈.addArrangedSubview(符号空格行)
 
@@ -501,71 +517,6 @@ final class 代码键盘视图: UIInputView {
         }
     }
 
-    /// 构建底部功能行（Tab、空格、删除、换行、切换键盘）
-    private func 构建底部功能行() {
-        let 功能堆栈 = UIStackView()
-        功能堆栈.axis = .horizontal
-        功能堆栈.spacing = 8 // 功能按钮间距8pt
-        功能堆栈.alignment = .fill
-        功能堆栈.distribution = .fill
-        功能堆栈.translatesAutoresizingMaskIntoConstraints = false
-        底部功能行.addSubview(功能堆栈)
-
-        // 缩进按钮
-        let 缩进按钮 = 创建功能按钮(标题: "Tab", 符号: "⇥", 字号: 14)
-        缩进按钮.addTarget(self, action: #selector(缩进按钮点击), for: .touchUpInside)
-
-        // 空格按钮（弹性宽度）
-        let 空格按钮 = 创建功能按钮(标题: "空格", 符号: "", 字号: 14)
-        空格按钮.addTarget(self, action: #selector(空格按钮点击), for: .touchUpInside)
-
-        // 删除按钮
-        let 删除按钮 = 创建功能按钮(标题: "删除", 符号: "⌫", 字号: 16)
-        删除按钮.addTarget(self, action: #selector(删除按钮点击), for: .touchUpInside)
-
-        // 换行按钮
-        let 换行按钮 = 创建功能按钮(标题: "换行", 符号: "↵", 字号: 16)
-        换行按钮.addTarget(self, action: #selector(换行按钮点击), for: .touchUpInside)
-
-        // 切换系统键盘按钮
-        let 切换按钮 = 创建功能按钮(标题: "系统", 符号: "⌨", 字号: 14)
-        切换按钮.addTarget(self, action: #selector(切换键盘按钮点击), for: .touchUpInside)
-
-        功能堆栈.addArrangedSubview(缩进按钮)
-        功能堆栈.addArrangedSubview(空格按钮)
-        功能堆栈.addArrangedSubview(删除按钮)
-        功能堆栈.addArrangedSubview(换行按钮)
-        功能堆栈.addArrangedSubview(切换按钮)
-
-        // 空格按钮占据弹性空间
-        空格按钮.widthAnchor.constraint(greaterThanOrEqualToConstant: 80).isActive = true // 空格按钮最小80pt宽
-
-        NSLayoutConstraint.activate([
-            功能堆栈.topAnchor.constraint(equalTo: 底部功能行.topAnchor, constant: 6),
-            功能堆栈.leadingAnchor.constraint(equalTo: 底部功能行.leadingAnchor, constant: 8),
-            功能堆栈.trailingAnchor.constraint(equalTo: 底部功能行.trailingAnchor, constant: -8),
-            功能堆栈.bottomAnchor.constraint(equalTo: 底部功能行.bottomAnchor, constant: -6)
-        ])
-    }
-
-    /// 创建功能行按钮
-    private func 创建功能按钮(标题: String, 符号: String, 字号: CGFloat) -> UIButton {
-        let 按钮 = UIButton(type: .system)
-        let 显示文本 = 符号.isEmpty ? 标题 : "\(符号) \(标题)"
-        按钮.setTitle(显示文本, for: .normal)
-        按钮.titleLabel?.font = .systemFont(ofSize: 字号, weight: .medium)
-        按钮.setTitleColor(.label, for: .normal)
-        按钮.backgroundColor = .systemBackground
-        按钮.layer.cornerRadius = 6
-        按钮.layer.shadowColor = UIColor.black.cgColor
-        按钮.layer.shadowOpacity = 0.15
-        按钮.layer.shadowOffset = CGSize(width: 0, height: 1)
-        按钮.layer.shadowRadius = 1
-        按钮.translatesAutoresizingMaskIntoConstraints = false
-        按钮.widthAnchor.constraint(equalToConstant: 60).isActive = true // 功能按钮固定60pt宽
-        return 按钮
-    }
-
     // MARK: - 按钮点击处理
 
     @objc private func 标签按钮点击(_ 按钮: 键盘标签按钮) {
@@ -595,10 +546,6 @@ final class 代码键盘视图: UIInputView {
 
     @objc private func 换行按钮点击() {
         换行回调?()
-    }
-
-    @objc private func 切换键盘按钮点击() {
-        切换系统键盘回调?()
     }
 }
 

@@ -6,6 +6,8 @@ struct 脚本编辑器页: View {
     @StateObject private var 视图模型: 脚本编辑器视图模型
     /// 测试面板视图模型
     @StateObject private var 测试视图模型 = 脚本测试视图模型()
+    /// 是否使用自定义代码键盘（默认false，使用系统键盘）
+    @State private var 使用代码键盘 = false
 
     init(脚本: 脚本模型, 存储: 脚本存储) {
         _视图模型 = StateObject(wrappedValue: 脚本编辑器视图模型(脚本: 脚本, 存储: 存储))
@@ -15,7 +17,7 @@ struct 脚本编辑器页: View {
         ScrollView {
             VStack(spacing: 0) {
                 // 顶部工具栏
-                工具栏视图(视图模型: 视图模型)
+                工具栏视图(视图模型: 视图模型, 使用代码键盘: $使用代码键盘)
 
                 // 保存/格式化提示条
                 if let 提示 = 视图模型.保存提示 {
@@ -31,7 +33,7 @@ struct 脚本编辑器页: View {
                 }
 
                 // 代码编辑器（固定高度，避免ScrollView嵌套滚动问题）
-                带行号代码编辑器(文本: $视图模型.脚本.内容, 字体大小: 视图模型.字体大小)
+                带行号代码编辑器(文本: $视图模型.脚本.内容, 字体大小: 视图模型.字体大小, 使用代码键盘: $使用代码键盘)
                     .frame(height: 420) // 编辑器固定高度420pt，内部可滚动，外部页面也可滚动
 
                 // 字体大小调整
@@ -80,10 +82,29 @@ struct 脚本编辑器页: View {
 /// 编辑器顶部工具栏
 struct 工具栏视图: View {
     @ObservedObject var 视图模型: 脚本编辑器视图模型
+    /// 是否使用自定义代码键盘绑定
+    @Binding var 使用代码键盘: Bool
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
+                // 代码键盘开关（顶部工具栏，手动切换）
+                Button(action: {
+                    使用代码键盘.toggle()
+                }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: 使用代码键盘 ? "keyboard.fill" : "keyboard")
+                            .font(.system(size: 14)) // 14pt图标，与文字对齐
+                        Text(使用代码键盘 ? "代码键盘" : "系统键盘")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(使用代码键盘 ? .white : .indigo)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(使用代码键盘 ? Color.indigo : Color.indigo.opacity(0.12))
+                    .cornerRadius(8)
+                }
                 工具按钮(标题: "保存", 图标: "square.and.arrow.down", 颜色: .blue) {
                     视图模型.保存脚本()
                 }
