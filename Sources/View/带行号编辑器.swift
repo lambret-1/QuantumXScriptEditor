@@ -22,6 +22,32 @@ struct 带行号代码编辑器: UIViewRepresentable {
             context.coordinator.插入补全项(项, 在: 容器.文本视图)
         }
         容器.补全控件.选中回调 = context.coordinator.补全选中回调
+        // 设置代码键盘回调
+        容器.代码键盘.插入文本回调 = { [weak 容器] 文本 in
+            guard let 容器 = 容器 else { return }
+            context.coordinator.在光标处插入文本(文本, 在: 容器.文本视图)
+        }
+        容器.代码键盘.删除字符回调 = { [weak 容器] in
+            guard let 容器 = 容器 else { return }
+            context.coordinator.删除光标前字符(在: 容器.文本视图)
+        }
+        容器.代码键盘.换行回调 = { [weak 容器] in
+            guard let 容器 = 容器 else { return }
+            context.coordinator.在光标处插入文本("\n", 在: 容器.文本视图)
+        }
+        容器.代码键盘.缩进回调 = { [weak 容器] in
+            guard let 容器 = 容器 else { return }
+            context.coordinator.在光标处插入文本("    ", 在: 容器.文本视图)
+        }
+        容器.代码键盘.切换系统键盘回调 = { [weak 容器] in
+            guard let 容器 = 容器 else { return }
+            容器.切换到系统键盘()
+        }
+        // 设置补全栏的代码键盘切换回调
+        容器.补全控件.切换代码键盘回调 = { [weak 容器] in
+            guard let 容器 = 容器 else { return }
+            容器.切换到代码键盘()
+        }
         // 初始高亮
         容器.文本视图.attributedText = context.coordinator.高亮服务.高亮(文本: 文本)
         return 容器
@@ -118,11 +144,33 @@ final class 编辑器协调器: NSObject, UITextViewDelegate {
         文本视图.selectedRange = NSRange(location: 开始 + 项.插入代码.count, length: 0)
         textViewDidChange(文本视图)
     }
+
+    /// 在光标处插入任意文本（代码键盘使用）
+    func 在光标处插入文本(_ 插入文本: String, 在 文本视图: UITextView) {
+        let 位置 = 文本视图.selectedRange.location
+        let 文本 = 文本视图.text as NSString
+        let 新文本 = 文本.replacingCharacters(in: 文本视图.selectedRange, with: 插入文本)
+        文本视图.text = 新文本
+        文本视图.selectedRange = NSRange(location: 位置 + 插入文本.count, length: 0)
+        textViewDidChange(文本视图)
+    }
+
+    /// 删除光标前一个字符（代码键盘删除键使用）
+    func 删除光标前字符(在 文本视图: UITextView) {
+        let 位置 = 文本视图.selectedRange.location
+        guard 位置 > 0 else { return }
+        let 文本 = 文本视图.text as NSString
+        let 删除范围 = NSRange(location: 位置 - 1, length: 1)
+        let 新文本 = 文本.replacingCharacters(in: 删除范围, with: "")
+        文本视图.text = 新文本
+        文本视图.selectedRange = NSRange(location: 位置 - 1, length: 0)
+        textViewDidChange(文本视图)
+    }
 }
 
 // MARK: - 编辑器容器视图
 
-/// 编辑器容器，包含文本视图、行号视图、补全辅助视图
+/// 编辑器容器，包含文本视图、行号视图、补全辅助视图、代码键盘
 final class 代码编辑器容器视图: UIView {
     /// 代码编辑文本视图
     let 文本视图: UITextView
@@ -130,17 +178,38 @@ final class 代码编辑器容器视图: UIView {
     let 行号控件: 行号视图
     /// 键盘上方补全辅助控件
     let 补全控件: 补全辅助视图
+    /// 自定义代码键盘
+    let 代码键盘: 代码键盘视图
+    /// 当前是否使用自定义代码键盘
+    private var 使用代码键盘 = true
 
     init(字体大小: CGFloat) {
         文本视图 = UITextView()
         行号控件 = 行号视图()
         补全控件 = 补全辅助视图()
+        代码键盘 = 代码键盘视图(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 280), inputViewStyle: .keyboard) // 代码键盘高度280pt，4页内容+底部功能行
         super.init(frame: .zero)
         设置子视图(字体大小: 字体大小)
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) 未实现")
+    }
+
+    /// 切换到系统键盘
+    func 切换到系统键盘() {
+        使用代码键盘 = false
+        文本视图.inputView = nil
+        文本视图.reloadInputViews()
+        补全控件.更新键盘切换状态(使用代码键盘: false)
+    }
+
+    /// 切换到自定义代码键盘
+    func 切换到代码键盘() {
+        使用代码键盘 = true
+        文本视图.inputView = 代码键盘
+        文本视图.reloadInputViews()
+        补全控件.更新键盘切换状态(使用代码键盘: true)
     }
 
     private func 设置子视图(字体大小: CGFloat) {
@@ -162,6 +231,7 @@ final class 代码编辑器容器视图: UIView {
             right: 8
         )
         文本视图.inputAccessoryView = 补全控件
+        文本视图.inputView = 代码键盘 // 默认使用自定义代码键盘
 
         // 配置行号控件
         行号控件.translatesAutoresizingMaskIntoConstraints = false
@@ -243,16 +313,20 @@ final class 行号视图: UIView {
 
 // MARK: - 补全辅助视图
 
-/// 键盘上方的代码补全候选条，横向滚动展示候选
+/// 键盘上方的代码补全候选条，横向滚动展示候选，含代码键盘切换按钮
 final class 补全辅助视图: UIView {
     /// 选中补全项的回调
     var 选中回调: ((代码补全项) -> Void)?
+    /// 切换代码键盘的回调
+    var 切换代码键盘回调: (() -> Void)?
     /// 当前候选列表
     private var 候选列表: [代码补全项] = []
     /// 横向滚动容器
     private let 滚动视图 = UIScrollView()
     /// 候选按钮堆栈
     private let 堆栈视图 = UIStackView()
+    /// 键盘切换按钮
+    private let 键盘切换按钮 = UIButton(type: .system)
     /// 是否有候选（控制视图高度）
     private var 有候选 = false
 
@@ -270,6 +344,13 @@ final class 补全辅助视图: UIView {
         CGSize(width: UIView.noIntrinsicMetric, height: 有候选 ? 44 : 0) // 有候选时44pt高，适配键盘上方区域
     }
 
+    /// 更新键盘切换按钮状态
+    func 更新键盘切换状态(使用代码键盘: Bool) {
+        键盘切换按钮.setTitle(使用代码键盘 ? "系统" : "代码", for: .normal)
+        键盘切换按钮.backgroundColor = 使用代码键盘 ? .systemGray5 : .systemBlue
+        键盘切换按钮.setTitleColor(使用代码键盘 ? .label : .white, for: .normal)
+    }
+
     private func 设置界面() {
         backgroundColor = .systemBackground
 
@@ -278,6 +359,16 @@ final class 补全辅助视图: UIView {
         分隔线.backgroundColor = .separator
         分隔线.translatesAutoresizingMaskIntoConstraints = false
         addSubview(分隔线)
+
+        // 键盘切换按钮（固定在右侧）
+        键盘切换按钮.setTitle("系统", for: .normal)
+        键盘切换按钮.titleLabel?.font = .systemFont(ofSize: 12, weight: .medium) // 12pt小字号，紧凑按钮
+        键盘切换按钮.backgroundColor = .systemGray5
+        键盘切换按钮.setTitleColor(.label, for: .normal)
+        键盘切换按钮.layer.cornerRadius = 6 // 6pt圆角
+        键盘切换按钮.translatesAutoresizingMaskIntoConstraints = false
+        键盘切换按钮.addTarget(self, action: #selector(键盘切换按钮点击), for: .touchUpInside)
+        addSubview(键盘切换按钮)
 
         // 滚动视图
         滚动视图.showsHorizontalScrollIndicator = false
@@ -298,9 +389,14 @@ final class 补全辅助视图: UIView {
             分隔线.trailingAnchor.constraint(equalTo: trailingAnchor),
             分隔线.heightAnchor.constraint(equalToConstant: 0.5), // 0.5pt细分割线，iOS标准分隔线厚度
 
+            键盘切换按钮.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8), // 右边距8pt
+            键盘切换按钮.centerYAnchor.constraint(equalTo: centerYAnchor),
+            键盘切换按钮.widthAnchor.constraint(equalToConstant: 48), // 切换按钮48pt宽
+            键盘切换按钮.heightAnchor.constraint(equalToConstant: 32), // 切换按钮32pt高
+
             滚动视图.topAnchor.constraint(equalTo: 分隔线.bottomAnchor),
             滚动视图.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12), // 左边距12pt
-            滚动视图.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12), // 右边距12pt
+            滚动视图.trailingAnchor.constraint(equalTo: 键盘切换按钮.leadingAnchor, constant: -8), // 右侧留出切换按钮空间
             滚动视图.bottomAnchor.constraint(equalTo: bottomAnchor),
 
             堆栈视图.topAnchor.constraint(equalTo: 滚动视图.topAnchor),
@@ -338,6 +434,10 @@ final class 补全辅助视图: UIView {
     @objc private func 候选按钮点击(_ 按钮: 补全按钮) {
         guard let 项 = 按钮.补全项 else { return }
         选中回调?(项)
+    }
+
+    @objc private func 键盘切换按钮点击() {
+        切换代码键盘回调?()
     }
 }
 
