@@ -18,6 +18,14 @@ final class App更新服务 {
     private static let 忽略版本键 = "App忽略更新版本号"
     /// 自动检测间隔（秒）：24小时
     private static let 自动检测间隔: TimeInterval = 24 * 60 * 60
+    /// 当前正在进行的检测任务（用于取消）
+    private static var 当前检测任务: URLSessionDataTask?
+
+    /// 取消当前正在进行的更新检测
+    static func 取消检测() {
+        当前检测任务?.cancel()
+        当前检测任务 = nil
+    }
 
     /// 获取当前App版本号（从Info.plist读取）
     static var 当前版本号: String {
@@ -65,9 +73,12 @@ final class App更新服务 {
         return false
     }
 
-    /// 检测最新版本（异步网络请求）
+    /// 检测最新版本（异步网络请求，5秒超时，可取消）
     /// - Parameter 完成回调: 检测完成回调，参数为更新信息（nil表示无更新或失败）
     static func 检测最新版本(完成回调: @escaping (App更新模型?) -> Void) {
+        // 取消之前未完成的检测任务，避免并发请求
+        取消检测()
+
         guard let url = URL(string: 最新版本API) else {
             完成回调(nil)
             return
@@ -76,10 +87,15 @@ final class App更新服务 {
         var 请求 = URLRequest(url: url)
         请求.httpMethod = "GET"
         请求.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        请求.timeoutInterval = 10 // 10秒超时，避免长时间等待
+        请求.timeoutInterval = 5 // 5秒超时，快速失败避免用户长时间等待
 
-        URLSession.shared.dataTask(with: 请求) { 数据, 响应, 错误 in
+        let 任务 = URLSession.shared.dataTask(with: 请求) { 数据, 响应, 错误 in
             DispatchQueue.main.async {
+                当前检测任务 = nil
+                // 被取消时不回调
+                if let 错误 = 错误 as? URLError, 错误.code == .cancelled {
+                    return
+                }
                 guard 错误 == nil,
                       let http响应 = 响应 as? HTTPURLResponse,
                       http响应.statusCode == 200,
@@ -125,7 +141,9 @@ final class App更新服务 {
                 )
                 完成回调(更新信息)
             }
-        }.resume()
+        }
+        当前检测任务 = 任务
+        任务.resume()
     }
 
     /// 格式化GitHub发布时间为可读字符串

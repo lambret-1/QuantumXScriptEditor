@@ -8,6 +8,8 @@ struct 更新检测弹窗: View {
     var 检测中: Bool = false
     /// 关闭回调
     var 关闭回调: (() -> Void)?
+    /// 取消检测回调（检测中点击取消时调用）
+    var 取消回调: (() -> Void)?
     /// 忽略此版本回调
     var 忽略回调: (() -> Void)?
     /// 下载完成回调（参数为本地IPA文件URL）
@@ -24,7 +26,11 @@ struct 更新检测弹窗: View {
             Color.black.opacity(0.4)
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
-                    if !检测中 && !下载中 {
+                    if 检测中 {
+                        // 检测中点击背景也可以取消
+                        取消回调?()
+                        关闭回调?()
+                    } else if !下载中 {
                         关闭回调?()
                     }
                 }
@@ -55,6 +61,19 @@ struct 更新检测弹窗: View {
             Text("当前版本 v\(App更新服务.当前版本号)")
                 .font(.caption)
                 .foregroundColor(.secondary)
+            // 取消按钮，用户可随时取消检测
+            Button(action: {
+                取消回调?()
+                关闭回调?()
+            }) {
+                Text("取消")
+                    .font(.subheadline)
+                    .foregroundColor(.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color(UIColor.systemGray6))
+                    .cornerRadius(8)
+            }
         }
         .padding(.vertical, 20)
     }
