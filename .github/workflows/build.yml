@@ -1,0 +1,44 @@
+name: 构建未签名IPA
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装XcodeGen
+        run: brew install xcodegen
+
+      - name: 生成Xcode项目
+        run: xcodegen generate
+
+      - name: 构建未签名IPA
+        run: |
+          xcodebuild -project "圈X脚本编辑器.xcodeproj" \
+            -scheme "圈X脚本编辑器" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: 打包IPA
+        run: |
+          mkdir -p Payload
+          cp -R "build/Build/Products/Release-iphoneos/圈X脚本编辑器.app" Payload/
+          zip -r "圈X脚本编辑器-unsigned.ipa" Payload
+          rm -rf Payload
+
+      - name: 上传IPA产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: 圈X脚本编辑器-unsigned
+          path: 圈X脚本编辑器-unsigned.ipa
