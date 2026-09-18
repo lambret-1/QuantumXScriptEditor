@@ -5,6 +5,11 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+# 同一分支只保留最新一次构建，取消旧的运行，避免多次推送触发重复构建
+concurrency:
+  group: 构建-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-14
@@ -39,26 +44,32 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: 打包IPA
+      - name: 打包IPA（文件名含版本号）
         run: |
+          # 从Info.plist读取版本号
+          VERSION=$(plutil -extract CFBundleShortVersionString raw -o - Info.plist | tr -d '\n')
+          IPA_NAME="QuantumXScriptEditor-v${VERSION}.ipa"
+          echo "IPA文件名: $IPA_NAME"
+          # 将版本号写入环境变量供后续步骤使用
+          echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
           mkdir -p Payload
           cp -R "build/Build/Products/Release-iphoneos/圈X脚本编辑器.app" Payload/
-          zip -r "QuantumXScriptEditor-unsigned.ipa" Payload
+          zip -r "$IPA_NAME" Payload
           rm -rf Payload
 
       - name: 上传IPA产物
         uses: actions/upload-artifact@v4
         with:
-          name: QuantumXScriptEditor-unsigned
-          path: QuantumXScriptEditor-unsigned.ipa
+          name: QuantumXScriptEditor-v${{ env.VERSION }}
+          path: ${{ env.IPA_NAME }}
 
       - name: 自动发布Release
         run: |
-          # 从Info.plist读取版本号
-          VERSION=$(plutil -extract CFBundleShortVersionString raw -o - Info.plist | tr -d '\n')
-          echo "当前版本号: $VERSION"
-          TAG="v$VERSION"
-          IPA_NAME="QuantumXScriptEditor-unsigned.ipa"
+          TAG="v${VERSION}"
+          echo "发布标签: $TAG"
+          echo "IPA文件: $IPA_NAME"
 
           # 检查Release是否已存在，存在则先删除旧版本
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
@@ -74,6 +85,7 @@ jobs:
           - 构建环境：Xcode 15.4 / macOS 14
           - 最低支持：iOS 14.0
           - 产物：未签名IPA（需自签名或侧载安装）
+          - 文件名：$IPA_NAME
 
           > 本Release由GitHub Actions自动构建发布，每次推送master分支自动更新。
           NOTESEOF
