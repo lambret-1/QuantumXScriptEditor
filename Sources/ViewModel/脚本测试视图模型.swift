@@ -16,8 +16,21 @@ final class 脚本测试视图模型: ObservableObject {
     @Published var 显示环境管理 = false
     /// 请求头编辑文本（key:value 一行一个）
     @Published var 请求头文本 = ""
+    /// 请求体编辑文本（POST/PUT时使用）
+    @Published var 请求体文本 = ""
+    /// 是否展开请求体编辑区
+    @Published var 展开请求体 = false
     /// 新建环境名称输入
     @Published var 新环境名称 = ""
+    /// 选中的HTTP方法
+    @Published var 请求方法 = "GET"
+    /// 最后一次执行耗时（秒）
+    @Published var 最后耗时: TimeInterval?
+    /// 是否显示复制成功提示
+    @Published var 显示复制成功 = false
+
+    /// 可用HTTP方法列表
+    let 可用方法 = ["GET", "POST", "PUT", "DELETE", "PATCH"]
 
     /// 网址记录存储
     let 网址存储 = 网址记录存储()
@@ -33,16 +46,17 @@ final class 脚本测试视图模型: ObservableObject {
                 self?.测试输出 = 输出
             }
         }
-        沙箱.完成回调 = { [weak self] in
+        沙箱.完成回调 = { [weak self] 耗时 in
             DispatchQueue.main.async {
                 self?.正在执行 = false
+                self?.最后耗时 = 耗时
             }
         }
     }
 
     /// 解析请求头文本为字典
     private var 解析请求头: [String: String] {
-        var 字典: [String: String] = [:]
+        var 字典: [String: String] = {}
         let 行数组 = 请求头文本.components(separatedBy: .newlines)
         for 行 in 行数组 {
             let 部分 = 行.split(separator: ":", maxSplits: 1)
@@ -71,14 +85,43 @@ final class 脚本测试视图模型: ObservableObject {
 
         正在执行 = true
         测试输出 = ""
+        最后耗时 = nil
         网址存储.添加网址(网址)
 
-        沙箱.执行脚本(代码: 脚本内容, 目标网址: 网址, 请求头: 解析请求头)
+        // 如果有请求体且方法为POST/PUT/PATCH，将请求体注入到脚本中
+        var 最终脚本 = 脚本内容
+        let 方法 = 请求方法
+        if !请求体文本.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+           (方法 == "POST" || 方法 == "PUT" || 方法 == "PATCH") {
+            // 在脚本开头注入 $request.body
+            let 注入代码 = "// [测试注入] 请求体\nif (typeof $request !== 'undefined') { $request.body = \(请求体文本.debugDescription); }\n\n"
+            最终脚本 = 注入代码 + 脚本内容
+        }
+
+        沙箱.执行脚本(代码: 最终脚本, 目标网址: 网址, 请求头: 解析请求头, 请求方法: 方法)
+    }
+
+    /// 停止当前执行
+    func 停止执行() {
+        guard 正在执行 else { return }
+        沙箱.停止执行()
+        正在执行 = false
     }
 
     /// 清空测试输出
     func 清空输出() {
         测试输出 = ""
+        最后耗时 = nil
+    }
+
+    /// 复制测试输出到剪贴板
+    func 复制输出() {
+        guard !测试输出.isEmpty else { return }
+        UIPasteboard.general.string = 测试输出
+        显示复制成功 = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.显示复制成功 = false
+        }
     }
 
     /// 应用选中的测试环境
