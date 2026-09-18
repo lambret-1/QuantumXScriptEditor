@@ -20,6 +20,21 @@ struct 脚本列表页: View {
     @State private var 分享文件URL: URL?
     /// 是否显示分享面板
     @State private var 显示分享面板 = false
+    // MARK: - 长按上下文菜单状态
+    /// 长按选中的脚本
+    @State private var 长按选中脚本: 脚本模型?
+    /// 是否显示重命名弹窗
+    @State private var 显示重命名弹窗 = false
+    /// 重命名输入文本
+    @State private var 重命名输入 = ""
+    /// 是否显示删除确认弹窗
+    @State private var 显示删除确认 = false
+    /// 要分享的脚本文件URL
+    @State private var 分享脚本URL: URL?
+    /// 是否显示脚本分享面板
+    @State private var 显示脚本分享面板 = false
+    /// 文件夹提示文本（打开文件夹后显示）
+    @State private var 文件夹提示: String?
 
     var body: some View {
         NavigationView {
@@ -32,6 +47,37 @@ struct 脚本列表页: View {
                         ForEach(视图模型.存储.脚本列表) { 脚本 in
                             NavigationLink(destination: 脚本编辑器页(脚本: 脚本, 存储: 视图模型.存储)) {
                                 脚本行视图(脚本: 脚本)
+                            }
+                            .contextMenu {
+                                // 重命名
+                                Button(action: {
+                                    长按选中脚本 = 脚本
+                                    重命名输入 = 脚本.名称
+                                    显示重命名弹窗 = true
+                                }) {
+                                    Label("重命名", systemImage: "pencil")
+                                }
+                                // 分享
+                                Button(action: {
+                                    长按选中脚本 = 脚本
+                                    分享脚本URL = 视图模型.存储.获取脚本文件URL(脚本)
+                                    显示脚本分享面板 = true
+                                }) {
+                                    Label("分享", systemImage: "square.and.arrow.up")
+                                }
+                                // 打开所在文件夹
+                                Button(action: {
+                                    打开所在文件夹()
+                                }) {
+                                    Label("打开所在文件夹", systemImage: "folder")
+                                }
+                                // 删除（破坏性操作）
+                                Button(action: {
+                                    长按选中脚本 = 脚本
+                                    显示删除确认 = true
+                                }) {
+                                    Label("删除", systemImage: "trash")
+                                }
                             }
                         }
                         .onDelete { 索引集 in
@@ -100,6 +146,22 @@ struct 脚本列表页: View {
                 .background(透明背景()) // 透明背景，只显示系统分享面板
             }
         }
+        // 脚本文件分享面板
+        .sheet(isPresented: $显示脚本分享面板) {
+            if let 文件URL = 分享脚本URL {
+                分享面板视图(文件URL: 文件URL) {
+                    显示脚本分享面板 = false
+                    分享脚本URL = nil
+                }
+                .background(透明背景())
+            }
+        }
+        // 重命名弹窗覆盖层
+        .overlay(重命名弹窗覆盖层)
+        // 删除确认弹窗覆盖层
+        .overlay(删除确认覆盖层)
+        // 文件夹提示浮层
+        .overlay(文件夹提示覆盖层)
     }
 
     // MARK: - 更新检测逻辑
@@ -183,6 +245,172 @@ struct 脚本列表页: View {
                     }
                 新建脚本弹窗(视图模型: 视图模型)
                     .transition(.scale)
+            }
+        }
+    }
+
+    // MARK: - 长按上下文菜单操作
+
+    /// 打开脚本所在文件夹（跳转到系统文件App）
+    private func 打开所在文件夹() {
+        // iOS通过shareddocuments:// URL scheme打开文件App
+        if let url = URL(string: "shareddocuments://") {
+            UIApplication.shared.open(url, options: [:]) { 成功 in
+                if 成功 {
+                    文件夹提示 = "已打开文件App，请进入「圈X脚本编辑器」→ QuantumXScripts 文件夹"
+                } else {
+                    文件夹提示 = "无法打开文件App，请手动前往文件App查看"
+                }
+                // 3秒后自动隐藏提示
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    文件夹提示 = nil
+                }
+            }
+        }
+    }
+
+    /// 确认重命名脚本
+    private func 确认重命名() {
+        guard let 脚本 = 长按选中脚本 else { return }
+        let 新名称 = 重命名输入.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !新名称.isEmpty else {
+            视图模型.错误提示 = "脚本名称不能为空"
+            return
+        }
+        do {
+            try 视图模型.存储.重命名脚本(脚本, 新名称: 新名称)
+            显示重命名弹窗 = false
+            长按选中脚本 = nil
+            重命名输入 = ""
+        } catch {
+            视图模型.错误提示 = error.localizedDescription
+        }
+    }
+
+    /// 确认删除脚本
+    private func 确认删除() {
+        guard let 脚本 = 长按选中脚本 else { return }
+        视图模型.删除脚本(脚本)
+        显示删除确认 = false
+        长按选中脚本 = nil
+    }
+
+    /// 重命名弹窗覆盖层
+    private var 重命名弹窗覆盖层: some View {
+        Group {
+            if 显示重命名弹窗 {
+                Color.black.opacity(0.4)
+                    .edgesIgnoringSafeArea(.all)
+                    .onTapGesture {
+                        显示重命名弹窗 = false
+                        长按选中脚本 = nil
+                    }
+                VStack(spacing: 16) {
+                    Text("重命名脚本")
+                        .font(.headline)
+                    TextField("脚本名称", text: $重命名输入)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                    HStack(spacing: 12) {
+                        Button("取消") {
+                            显示重命名弹窗 = false
+                            长按选中脚本 = nil
+                        }
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color(UIColor.systemGray6))
+                        .cornerRadius(8)
+
+                        Button("确定") {
+                            确认重命名()
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(重命名输入.trimmingCharacters(in: .whitespaces).isEmpty ? Color.gray : Color.blue)
+                        .cornerRadius(8)
+                        .disabled(重命名输入.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                }
+                .padding(20)
+                .background(Color(.systemBackground))
+                .cornerRadius(16)
+                .padding(.horizontal, 32)
+                .transition(.scale)
+            }
+        }
+    }
+
+    /// 删除确认弹窗覆盖层
+    private var 删除确认覆盖层: some View {
+        Group {
+            if 显示删除确认, let 脚本 = 长按选中脚本 {
+                Color.black.opacity(0.4)
+                    .edgesIgnoringSafeArea(.all)
+                    .onTapGesture {
+                        显示删除确认 = false
+                        长按选中脚本 = nil
+                    }
+                VStack(spacing: 16) {
+                    Image(systemName: "trash.circle.fill")
+                        .font(.system(size: 40)) // 40pt删除图标，醒目提示
+                        .foregroundColor(.red)
+                    Text("删除脚本")
+                        .font(.headline)
+                    Text("确定要删除「\(脚本.名称)」吗？此操作不可撤销。")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                    HStack(spacing: 12) {
+                        Button("取消") {
+                            显示删除确认 = false
+                            长按选中脚本 = nil
+                        }
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color(UIColor.systemGray6))
+                        .cornerRadius(8)
+
+                        Button("删除") {
+                            确认删除()
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.red)
+                        .cornerRadius(8)
+                    }
+                }
+                .padding(20)
+                .background(Color(.systemBackground))
+                .cornerRadius(16)
+                .padding(.horizontal, 32)
+                .transition(.scale)
+            }
+        }
+    }
+
+    /// 文件夹提示浮层
+    private var 文件夹提示覆盖层: some View {
+        Group {
+            if let 提示 = 文件夹提示 {
+                VStack {
+                    Spacer()
+                    Text(提示)
+                        .font(.subheadline)
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color.black.opacity(0.8))
+                        .cornerRadius(10)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 40)
+                }
+                .transition(.move(edge: .bottom))
             }
         }
     }

@@ -8,7 +8,7 @@ final class 脚本存储: ObservableObject {
     /// 已加载的脚本列表
     @Published var 脚本列表: [脚本模型] = []
     /// 脚本存储文件夹URL
-    private let 存储文件夹URL: URL
+    let 存储文件夹URL: URL
 
     /// 初始化存储服务，自动创建目录并加载已有脚本
     init() {
@@ -96,5 +96,12 @@ final class 脚本存储: ObservableObject {
         } catch {
             throw 应用错误.文件读写失败(error.localizedDescription)
         }
+    }
+
+    /// 获取脚本对应的本地文件URL
+    /// - Parameter 脚本: 脚本模型
+    /// - Returns: .js文件的本地URL
+    func 获取脚本文件URL(_ 脚本: 脚本模型) -> URL {
+        存储文件夹URL.appendingPathComponent("\(脚本.名称).js")
     }
 }
