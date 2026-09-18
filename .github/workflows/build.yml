@@ -18,6 +18,11 @@ jobs:
       - name: 生成Xcode项目
         run: xcodegen generate
 
+      - name: 降级项目格式以兼容Xcode15
+        run: |
+          sed -i '' 's/objectVersion = 77;/objectVersion = 56;/' "圈X脚本编辑器.xcodeproj/project.pbxproj"
+          plutil -convert xml1 "圈X脚本编辑器.xcodeproj/project.pbxproj"
+
       - name: 构建未签名IPA
         run: |
           xcodebuild -project "圈X脚本编辑器.xcodeproj" \
