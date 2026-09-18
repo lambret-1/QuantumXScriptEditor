@@ -15,13 +15,13 @@ struct 带行号代码编辑器: UIViewRepresentable {
         let 容器 = 代码编辑器容器视图(字体大小: 字体大小)
         容器.文本视图.delegate = context.coordinator
         容器.文本视图.text = 文本
-        容器.行号视图.文本视图 = 容器.文本视图
+        容器.行号控件.文本视图 = 容器.文本视图
         // 设置补全选中回调
         context.coordinator.补全选中回调 = { [weak 容器] 项 in
             guard let 容器 = 容器 else { return }
             context.coordinator.插入补全项(项, 在: 容器.文本视图)
         }
-        容器.补全辅助视图.选中回调 = context.coordinator.补全选中回调
+        容器.补全控件.选中回调 = context.coordinator.补全选中回调
         // 初始高亮
         容器.文本视图.attributedText = context.coordinator.高亮服务.高亮(文本: 文本)
         return 容器
@@ -35,7 +35,7 @@ struct 带行号代码编辑器: UIViewRepresentable {
             容器.文本视图.attributedText = context.coordinator.高亮服务.高亮(文本: 文本)
             容器.文本视图.selectedRange = 选中范围
         }
-        容器.行号视图.setNeedsDisplay()
+        容器.行号控件.setNeedsDisplay()
     }
 
     func makeCoordinator() -> 编辑器协调器 {
@@ -66,7 +66,7 @@ final class 编辑器协调器: NSObject, UITextViewDelegate {
         父视图.文本 = 文本视图.text
         // 刷新行号
         if let 容器 = 文本视图.superview as? 代码编辑器容器视图 {
-            容器.行号视图.setNeedsDisplay()
+            容器.行号控件.setNeedsDisplay()
             更新补全候选(文本视图, 容器: 容器)
         }
     }
@@ -75,14 +75,14 @@ final class 编辑器协调器: NSObject, UITextViewDelegate {
     func scrollViewDidScroll(_ 滚动视图: UIScrollView) {
         guard let 文本视图 = 滚动视图 as? UITextView,
               let 容器 = 文本视图.superview as? 代码编辑器容器视图 else { return }
-        容器.行号视图.setNeedsDisplay()
+        容器.行号控件.setNeedsDisplay()
     }
 
     /// 根据当前光标位置的单词过滤补全候选
     private func 更新补全候选(_ 文本视图: UITextView, 容器: 代码编辑器容器视图) {
         let 单词 = 当前单词(在: 文本视图)
         let 候选 = 代码补全服务.过滤候选项(前缀: 单词)
-        容器.补全辅助视图.更新候选(候选)
+        容器.补全控件.更新候选(候选)
     }
 
     /// 获取光标前的当前单词（到空白或换行截止）
@@ -126,15 +126,15 @@ final class 编辑器协调器: NSObject, UITextViewDelegate {
 final class 代码编辑器容器视图: UIView {
     /// 代码编辑文本视图
     let 文本视图: UITextView
-    /// 行号显示视图
-    let 行号视图: 行号视图
-    /// 键盘上方补全辅助视图
-    let 补全辅助视图: 补全辅助视图
+    /// 行号显示控件
+    let 行号控件: 行号视图
+    /// 键盘上方补全辅助控件
+    let 补全控件: 补全辅助视图
 
     init(字体大小: CGFloat) {
         文本视图 = UITextView()
-        行号视图 = 行号视图()
-        补全辅助视图 = 补全辅助视图()
+        行号控件 = 行号视图()
+        补全控件 = 补全辅助视图()
         super.init(frame: .zero)
         设置子视图(字体大小: 字体大小)
     }
@@ -161,14 +161,14 @@ final class 代码编辑器容器视图: UIView {
             bottom: 8,
             right: 8
         )
-        文本视图.inputAccessoryView = 补全辅助视图
+        文本视图.inputAccessoryView = 补全控件
 
-        // 配置行号视图
-        行号视图.translatesAutoresizingMaskIntoConstraints = false
-        行号视图.backgroundColor = .systemGray6.withAlphaComponent(0.5) // 半透明灰底，区分行号区与代码区
+        // 配置行号控件
+        行号控件.translatesAutoresizingMaskIntoConstraints = false
+        行号控件.backgroundColor = .systemGray6.withAlphaComponent(0.5) // 半透明灰底，区分行号区与代码区
 
         addSubview(文本视图)
-        addSubview(行号视图)
+        addSubview(行号控件)
 
         // 自动布局约束
         NSLayoutConstraint.activate([
@@ -177,10 +177,10 @@ final class 代码编辑器容器视图: UIView {
             文本视图.trailingAnchor.constraint(equalTo: trailingAnchor),
             文本视图.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            行号视图.topAnchor.constraint(equalTo: topAnchor),
-            行号视图.leadingAnchor.constraint(equalTo: leadingAnchor),
-            行号视图.widthAnchor.constraint(equalToConstant: 应用常量.行号区域宽度), // 行号区域固定宽度
-            行号视图.bottomAnchor.constraint(equalTo: bottomAnchor)
+            行号控件.topAnchor.constraint(equalTo: topAnchor),
+            行号控件.leadingAnchor.constraint(equalTo: leadingAnchor),
+            行号控件.widthAnchor.constraint(equalToConstant: 应用常量.行号区域宽度), // 行号区域固定宽度
+            行号控件.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
     }
 }
