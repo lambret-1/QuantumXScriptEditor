@@ -32,6 +32,8 @@ final class 代码键盘视图: UIInputView {
     private var 英文字母按钮列表: [键盘按键按钮] = []
     /// 英文键盘Shift按钮引用
     private var 英文shift按钮: UIButton?
+    /// 关联对象键：英文功能按钮插入文本
+    private static var 英文功能插入文本键: UInt8 = 0
 
     /// 五个页面定义（英文为首页，方便输入字母）
     private let 页面定义: [(名称: String, 符号: String, 按钮列表: [键盘按钮数据])] = [
@@ -55,7 +57,9 @@ final class 代码键盘视图: UIInputView {
 
     private func 设置界面() {
         backgroundColor = .systemGray6 // 浅灰背景，与系统键盘风格一致
-        allowsSelfSizing = true
+        // 固定高度，禁止自适尺寸，防止输入时键盘高度变化导致屏幕乱跳
+        translatesAutoresizingMaskIntoConstraints = false
+        heightAnchor.constraint(equalToConstant: 280).isActive = true // 键盘总高度280pt固定
 
         // 标签栏
         标签栏.backgroundColor = .systemGray5 // 稍深灰底，区分标签栏与按键区
@@ -86,7 +90,7 @@ final class 代码键盘视图: UIInputView {
 
         // 构建标签按钮
         构建标签栏()
-        // 构建四个页面
+        // 构建五个页面
         构建页面()
         // 构建底部功能行
         构建底部功能行()
@@ -167,7 +171,7 @@ final class 代码键盘视图: UIInputView {
             let 滚动视图 = UIScrollView()
             滚动视图.showsVerticalScrollIndicator = false
             滚动视图.showsHorizontalScrollIndicator = false
-            滚动视图.alwaysBounceVertical = true
+            滚动视图.alwaysBounceVertical = false // 禁止垂直弹跳，防止输入时屏幕乱跳
             滚动视图.translatesAutoresizingMaskIntoConstraints = false
             页面容器.addSubview(滚动视图)
 
@@ -238,35 +242,39 @@ final class 代码键盘视图: UIInputView {
 
     // MARK: - 英文26键键盘页面
 
-    /// 构建英文QWERTY键盘页面（3行布局，带Shift大小写切换）
+    /// 构建英文QWERTY键盘页面（5行布局：数字/字母三行/符号空格，顶部对齐固定行高，防止屏幕乱跳）
     private func 构建英文页面(容器: UIView) {
-        // 主垂直堆栈
+        // 主垂直堆栈（顶部对齐，固定行高，禁止居中导致输入时跳动）
         let 主堆栈 = UIStackView()
         主堆栈.axis = .vertical
-        主堆栈.spacing = 8 // 行间距8pt，标准键盘行距
+        主堆栈.spacing = 5 // 行间距5pt，紧凑排列
         主堆栈.alignment = .fill
         主堆栈.translatesAutoresizingMaskIntoConstraints = false
         容器.addSubview(主堆栈)
 
-        // 第一行：Q W E R T Y U I O P
-        let 第一行 = 创建英文行(字母: ["Q","W","E","R","T","Y","U","I","O","P"], 左右边距: 0)
-        主堆栈.addArrangedSubview(第一行)
+        // 第一行：数字 1 2 3 4 5 6 7 8 9 0
+        let 数字行 = 创建英文功能行(标题列表: ["1","2","3","4","5","6","7","8","9","0"], 插入列表: ["1","2","3","4","5","6","7","8","9","0"], 左右边距: 0, 字号: 16)
+        主堆栈.addArrangedSubview(数字行)
 
-        // 第二行：A S D F G H J K L（左右留边距，模拟真实键盘错位）
-        let 第二行 = 创建英文行(字母: ["A","S","D","F","G","H","J","K","L"], 左右边距: 16)
-        主堆栈.addArrangedSubview(第二行)
+        // 第二行：Q W E R T Y U I O P
+        let 第一字母行 = 创建英文行(字母: ["Q","W","E","R","T","Y","U","I","O","P"], 左右边距: 0)
+        主堆栈.addArrangedSubview(第一字母行)
 
-        // 第三行：Shift + Z X C V B N M + 删除
-        let 第三行 = UIStackView()
-        第三行.axis = .horizontal
-        第三行.spacing = 6 // 列间距6pt
-        第三行.alignment = .fill
-        第三行.distribution = .fill
+        // 第三行：A S D F G H J K L（左右留边距，模拟真实键盘错位）
+        let 第二字母行 = 创建英文行(字母: ["A","S","D","F","G","H","J","K","L"], 左右边距: 18)
+        主堆栈.addArrangedSubview(第二字母行)
+
+        // 第四行：Shift + Z X C V B N M + 删除
+        let 第三字母行 = UIStackView()
+        第三字母行.axis = .horizontal
+        第三字母行.spacing = 5 // 列间距5pt
+        第三字母行.alignment = .fill
+        第三字母行.distribution = .fill
 
         // Shift按钮
         let shift按钮 = UIButton(type: .system)
         shift按钮.setTitle("⇧", for: .normal)
-        shift按钮.titleLabel?.font = .systemFont(ofSize: 18, weight: .regular) // 18ptShift图标
+        shift按钮.titleLabel?.font = .systemFont(ofSize: 17, weight: .regular) // 17ptShift图标
         shift按钮.setTitleColor(.label, for: .normal)
         shift按钮.backgroundColor = .systemGray5 // Shift键灰色底，与功能键一致
         shift按钮.layer.cornerRadius = 6
@@ -276,26 +284,26 @@ final class 代码键盘视图: UIInputView {
         shift按钮.layer.shadowRadius = 1
         shift按钮.addTarget(self, action: #selector(英文shift按钮点击), for: .touchUpInside)
         shift按钮.translatesAutoresizingMaskIntoConstraints = false
-        shift按钮.widthAnchor.constraint(equalToConstant: 44).isActive = true // Shift键44pt宽
+        shift按钮.widthAnchor.constraint(equalToConstant: 40).isActive = true // Shift键40pt宽
         英文shift按钮 = shift按钮
-        第三行.addArrangedSubview(shift按钮)
+        第三字母行.addArrangedSubview(shift按钮)
 
         // Z X C V B N M 七个字母
         let 字母行内堆栈 = UIStackView()
         字母行内堆栈.axis = .horizontal
-        字母行内堆栈.spacing = 6
+        字母行内堆栈.spacing = 5
         字母行内堆栈.distribution = .fillEqually
         字母行内堆栈.alignment = .fill
         for 字母 in ["Z","X","C","V","B","N","M"] {
             let 按钮 = 创建英文字母按钮(字母: 字母)
             字母行内堆栈.addArrangedSubview(按钮)
         }
-        第三行.addArrangedSubview(字母行内堆栈)
+        第三字母行.addArrangedSubview(字母行内堆栈)
 
         // 删除按钮
         let 删除按钮 = UIButton(type: .system)
         删除按钮.setTitle("⌫", for: .normal)
-        删除按钮.titleLabel?.font = .systemFont(ofSize: 18, weight: .regular)
+        删除按钮.titleLabel?.font = .systemFont(ofSize: 17, weight: .regular)
         删除按钮.setTitleColor(.label, for: .normal)
         删除按钮.backgroundColor = .systemGray5
         删除按钮.layer.cornerRadius = 6
@@ -305,30 +313,70 @@ final class 代码键盘视图: UIInputView {
         删除按钮.layer.shadowRadius = 1
         删除按钮.addTarget(self, action: #selector(删除按钮点击), for: .touchUpInside)
         删除按钮.translatesAutoresizingMaskIntoConstraints = false
-        删除按钮.widthAnchor.constraint(equalToConstant: 44).isActive = true // 删除键44pt宽
-        第三行.addArrangedSubview(删除按钮)
+        删除按钮.widthAnchor.constraint(equalToConstant: 40).isActive = true // 删除键40pt宽
+        第三字母行.addArrangedSubview(删除按钮)
 
-        主堆栈.addArrangedSubview(第三行)
+        主堆栈.addArrangedSubview(第三字母行)
 
-        // 布局约束：垂直居中，左右留边距
+        // 第五行：常用符号 + 空格（弹性） + 常用符号
+        let 符号空格行 = UIStackView()
+        符号空格行.axis = .horizontal
+        符号空格行.spacing = 5
+        符号空格行.alignment = .fill
+        符号空格行.distribution = .fill
+
+        // 左侧符号：, . ! ?
+        for (标题, 插入) in [(",", ","), (".", "."), ("!", "!"), ("?", "?")] {
+            let 按钮 = 创建英文功能按钮(标题: 标题, 插入: 插入, 字号: 16)
+            按钮.translatesAutoresizingMaskIntoConstraints = false
+            按钮.widthAnchor.constraint(equalToConstant: 32).isActive = true // 符号键32pt宽
+            符号空格行.addArrangedSubview(按钮)
+        }
+
+        // 空格按钮（弹性宽度，占据剩余空间）
+        let 空格按钮 = UIButton(type: .system)
+        空格按钮.setTitle("空格", for: .normal)
+        空格按钮.titleLabel?.font = .systemFont(ofSize: 14, weight: .regular) // 14pt空格文字
+        空格按钮.setTitleColor(.secondaryLabel, for: .normal)
+        空格按钮.backgroundColor = .systemBackground
+        空格按钮.layer.cornerRadius = 6
+        空格按钮.layer.shadowColor = UIColor.black.cgColor
+        空格按钮.layer.shadowOpacity = 0.15
+        空格按钮.layer.shadowOffset = CGSize(width: 0, height: 1)
+        空格按钮.layer.shadowRadius = 1
+        空格按钮.addTarget(self, action: #selector(空格按钮点击), for: .touchUpInside)
+        空格按钮.setContentHuggingPriority(.defaultLow, for: .horizontal) // 低拥抱优先级，允许拉伸
+        符号空格行.addArrangedSubview(空格按钮)
+
+        // 右侧符号：@ # & /
+        for (标题, 插入) in [("@", "@"), ("#", "#"), ("&", "&"), ("/", "/")] {
+            let 按钮 = 创建英文功能按钮(标题: 标题, 插入: 插入, 字号: 16)
+            按钮.translatesAutoresizingMaskIntoConstraints = false
+            按钮.widthAnchor.constraint(equalToConstant: 32).isActive = true // 符号键32pt宽
+            符号空格行.addArrangedSubview(按钮)
+        }
+
+        主堆栈.addArrangedSubview(符号空格行)
+
+        // 布局约束：顶部对齐，固定行高，禁止居中导致输入时跳动
         NSLayoutConstraint.activate([
-            主堆栈.centerYAnchor.constraint(equalTo: 容器.centerYAnchor),
-            主堆栈.leadingAnchor.constraint(equalTo: 容器.leadingAnchor, constant: 8), // 左边距8pt
-            主堆栈.trailingAnchor.constraint(equalTo: 容器.trailingAnchor, constant: -8), // 右边距8pt
+            主堆栈.topAnchor.constraint(equalTo: 容器.topAnchor, constant: 4), // 顶部4pt间距
+            主堆栈.leadingAnchor.constraint(equalTo: 容器.leadingAnchor, constant: 6), // 左边距6pt
+            主堆栈.trailingAnchor.constraint(equalTo: 容器.trailingAnchor, constant: -6), // 右边距6pt
         ])
 
         // 初始刷新（设置为小写）
         刷新英文页面()
     }
 
-    /// 创建一行英文字母按钮
+    /// 创建一行英文字母按钮（固定行高36pt）
     private func 创建英文行(字母: [String], 左右边距: CGFloat) -> UIView {
         let 行容器 = UIView()
         行容器.translatesAutoresizingMaskIntoConstraints = false
 
         let 行堆栈 = UIStackView()
         行堆栈.axis = .horizontal
-        行堆栈.spacing = 6 // 列间距6pt
+        行堆栈.spacing = 5 // 列间距5pt
         行堆栈.distribution = .fillEqually
         行堆栈.alignment = .fill
         行堆栈.translatesAutoresizingMaskIntoConstraints = false
@@ -344,10 +392,65 @@ final class 代码键盘视图: UIInputView {
             行堆栈.bottomAnchor.constraint(equalTo: 行容器.bottomAnchor),
             行堆栈.leadingAnchor.constraint(equalTo: 行容器.leadingAnchor, constant: 左右边距),
             行堆栈.trailingAnchor.constraint(equalTo: 行容器.trailingAnchor, constant: -左右边距),
-            行容器.heightAnchor.constraint(equalToConstant: 40) // 字母键40pt高，标准触控高度
+            行容器.heightAnchor.constraint(equalToConstant: 36) // 字母键36pt高，5行刚好填满
         ])
 
         return 行容器
+    }
+
+    /// 创建一行英文功能按钮（数字/符号等非字母键，固定行高36pt）
+    private func 创建英文功能行(标题列表: [String], 插入列表: [String], 左右边距: CGFloat, 字号: CGFloat) -> UIView {
+        let 行容器 = UIView()
+        行容器.translatesAutoresizingMaskIntoConstraints = false
+
+        let 行堆栈 = UIStackView()
+        行堆栈.axis = .horizontal
+        行堆栈.spacing = 5
+        行堆栈.distribution = .fillEqually
+        行堆栈.alignment = .fill
+        行堆栈.translatesAutoresizingMaskIntoConstraints = false
+        行容器.addSubview(行堆栈)
+
+        for (标题, 插入) in zip(标题列表, 插入列表) {
+            let 按钮 = 创建英文功能按钮(标题: 标题, 插入: 插入, 字号: 字号)
+            行堆栈.addArrangedSubview(按钮)
+        }
+
+        NSLayoutConstraint.activate([
+            行堆栈.topAnchor.constraint(equalTo: 行容器.topAnchor),
+            行堆栈.bottomAnchor.constraint(equalTo: 行容器.bottomAnchor),
+            行堆栈.leadingAnchor.constraint(equalTo: 行容器.leadingAnchor, constant: 左右边距),
+            行堆栈.trailingAnchor.constraint(equalTo: 行容器.trailingAnchor, constant: -左右边距),
+            行容器.heightAnchor.constraint(equalToConstant: 36) // 功能键36pt高，与字母键一致
+        ])
+
+        return 行容器
+    }
+
+    /// 创建单个英文功能按钮（数字/符号）
+    private func 创建英文功能按钮(标题: String, 插入: String, 字号: CGFloat) -> UIButton {
+        let 按钮 = UIButton(type: .system)
+        按钮.setTitle(标题, for: .normal)
+        按钮.titleLabel?.font = .systemFont(ofSize: 字号, weight: .regular)
+        按钮.setTitleColor(.label, for: .normal)
+        按钮.backgroundColor = .systemBackground // 白色按键
+        按钮.layer.cornerRadius = 6
+        按钮.layer.shadowColor = UIColor.black.cgColor
+        按钮.layer.shadowOpacity = 0.15
+        按钮.layer.shadowOffset = CGSize(width: 0, height: 1)
+        按钮.layer.shadowRadius = 1
+        按钮.tag = 插入.hashValue // 用hash值暂存插入文本标识
+        // 用关联对象存储插入文本
+        objc_setAssociatedObject(按钮, &Self.英文功能插入文本键, 插入, .OBJC_ASSOCIATION_COPY_NONATOMIC)
+        按钮.addTarget(self, action: #selector(英文功能按钮点击(_:)), for: .touchUpInside)
+        return 按钮
+    }
+
+    /// 英文功能按钮点击（数字/符号）
+    @objc private func 英文功能按钮点击(_ 按钮: UIButton) {
+        if let 插入文本 = objc_getAssociatedObject(按钮, &Self.英文功能插入文本键) as? String {
+            插入文本回调?(插入文本)
+        }
     }
 
     /// 创建单个英文字母按钮
@@ -357,7 +460,7 @@ final class 代码键盘视图: UIInputView {
         按钮.字母小写 = 字母.lowercased()
         按钮.字母大写 = 字母.uppercased()
         按钮.setTitle(字母.lowercased(), for: .normal)
-        按钮.titleLabel?.font = .systemFont(ofSize: 18, weight: .regular) // 18pt字母，清晰易读
+        按钮.titleLabel?.font = .systemFont(ofSize: 17, weight: .regular) // 17pt字母，36pt行高内清晰易读
         按钮.setTitleColor(.label, for: .normal)
         按钮.backgroundColor = .systemBackground // 白色按键
         按钮.layer.cornerRadius = 6 // 6pt圆角
