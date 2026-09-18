@@ -14,9 +14,9 @@ final class 脚本列表视图模型: ObservableObject {
     @Published var 错误提示: String?
 
     /// 初始化，注入脚本存储服务
-    /// - Parameter 存储: 脚本存储服务，默认新建
-    init(存储: 脚本存储 = 脚本存储()) {
-        self.存储 = 存储
+    /// - Parameter 存储: 脚本存储服务，默认新建（在MainActor上下文中创建）
+    init(存储: 脚本存储? = nil) {
+        self.存储 = 存储 ?? 脚本存储()
     }
 
     /// 新建空白脚本
