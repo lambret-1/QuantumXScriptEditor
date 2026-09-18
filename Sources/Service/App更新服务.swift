@@ -149,4 +149,91 @@ final class App更新服务 {
         guard let url = URL(string: 地址), !地址.isEmpty else { return }
         UIApplication.shared.open(url)
     }
+
+    // MARK: - IPA下载
+
+    /// 下载IPA文件到临时目录，带进度回调
+    /// - Parameters:
+    ///   - 下载地址: IPA下载URL
+    ///   - 进度回调: 下载进度（0.0~1.0），主线程回调
+    ///   - 完成回调: 下载完成回调，参数为本地文件URL（失败时为nil）
+    static func 下载IPA(下载地址: String, 进度回调: @escaping (Double) -> Void, 完成回调: @escaping (URL?) -> Void) {
+        guard let url = URL(string: 下载地址), !下载地址.isEmpty else {
+            完成回调(nil)
+            return
+        }
+        let 下载器 = IPA下载器(进度回调: 进度回调, 完成回调: 完成回调)
+        下载器.开始下载(url: url)
+        // 持有下载器引用防止被释放
+        objc_setAssociatedObject(self, "IPA下载器_\(url.absoluteString.hashValue)", 下载器, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+}
+
+// MARK: - IPA下载器（URLSessionDownloadDelegate实现）
+
+/// IPA文件下载器，处理下载进度与文件保存
+final class IPA下载器: NSObject, URLSessionDownloadDelegate {
+    /// 进度回调
+    private let 进度回调: (Double) -> Void
+    /// 完成回调
+    private let 完成回调: (URL?) -> Void
+    /// 下载会话
+    private var 会话: URLSession?
+
+    init(进度回调: @escaping (Double) -> Void, 完成回调: @escaping (URL?) -> Void) {
+        self.进度回调 = 进度回调
+        self.完成回调 = 完成回调
+        super.init()
+    }
+
+    /// 开始下载
+    func 开始下载(url: URL) {
+        let 配置 = URLSessionConfiguration.default
+        会话 = URLSession(configuration: 配置, delegate: self, delegateQueue: .main)
+        var 请求 = URLRequest(url: url)
+        请求.timeoutInterval = 60 // 60秒超时，IPA文件较大
+        会话?.downloadTask(with: 请求).resume()
+    }
+
+    // MARK: - URLSessionDownloadDelegate
+
+    /// 下载进度更新
+    func urlSession(_ 会话: URLSession, downloadTask: URLSessionDownloadTask, didWriteData bytesWritten: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
+        guard totalBytesExpectedToWrite > 0 else { return }
+        let 进度 = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        进度回调(min(进度, 1.0))
+    }
+
+    /// 下载完成
+    func urlSession(_ 会话: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
+        // 检查HTTP状态码
+        if let http响应 = downloadTask.response as? HTTPURLResponse,
+           http响应.statusCode != 200 {
+            完成回调(nil)
+            return
+        }
+
+        // 将临时文件移动到Caches目录，文件名保留原始名称
+        let 文件名 = downloadTask.response?.suggestedFilename ?? "QuantumXScriptEditor.ipa"
+        let 目标路径 = FileManager.default.temporaryDirectory.appendingPathComponent(文件名)
+
+        do {
+            // 如果目标文件已存在，先删除
+            if FileManager.default.fileExists(atPath: 目标路径.path) {
+                try FileManager.default.removeItem(at: 目标路径)
+            }
+            try FileManager.default.moveItem(at: location, to: 目标路径)
+            完成回调(目标路径)
+        } catch {
+            完成回调(nil)
+        }
+    }
+
+    /// 下载失败
+    func urlSession(_ 会话: URLSession, task: URLSessionTask, didCompleteWithError 错误: Error?) {
+        if 错误 != nil {
+            完成回调(nil)
+        }
+        会话.invalidateAndCancel()
+    }
 }
