@@ -10,13 +10,21 @@ struct 更新检测弹窗: View {
     var 关闭回调: (() -> Void)?
     /// 忽略此版本回调
     var 忽略回调: (() -> Void)?
+    /// 下载完成回调（参数为本地IPA文件URL）
+    var 下载完成回调: ((URL) -> Void)?
+    /// 下载中状态
+    @State private var 下载中 = false
+    /// 下载进度（0.0~1.0）
+    @State private var 下载进度: Double = 0
+    /// 下载失败提示
+    @State private var 下载失败 = false
 
     var body: some View {
         ZStack {
             Color.black.opacity(0.4)
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
-                    if !检测中 {
+                    if !检测中 && !下载中 {
                         关闭回调?()
                     }
                 }
@@ -98,26 +106,69 @@ struct 更新检测弹窗: View {
 
             // 操作按钮
             VStack(spacing: 10) {
-                // 下载更新按钮
-                Button(action: {
-                    if !更新信息.下载地址.isEmpty {
-                        App更新服务.打开下载地址(更新信息.下载地址)
-                    } else {
-                        App更新服务.打开Release页面(更新信息.页面地址)
+                // 下载更新按钮（下载中显示进度条）
+                if 下载中 {
+                    VStack(spacing: 8) {
+                        // 进度条
+                        进度条视图(进度: 下载进度)
+                            .frame(height: 8) // 进度条高度8pt
+                        HStack {
+                            Text("正在下载...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("\(Int(下载进度 * 100))%")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.down.to.line")
-                            .font(.subheadline)
-                        Text("下载更新")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                    .padding(.vertical, 4)
+                } else if 下载失败 {
+                    // 下载失败状态
+                    VStack(spacing: 6) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                            Text("下载失败，请重试")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                        Button(action: {
+                            开始下载()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.clockwise")
+                                    .font(.subheadline)
+                                Text("重新下载")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.orange)
+                            .cornerRadius(10)
+                        }
                     }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Color.blue)
-                    .cornerRadius(10)
+                } else {
+                    // 正常下载按钮
+                    Button(action: {
+                        开始下载()
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.down.to.line")
+                                .font(.subheadline)
+                            Text("下载更新")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .cornerRadius(10)
+                    }
                 }
 
                 // 查看Release页面
@@ -129,25 +180,78 @@ struct 更新检测弹窗: View {
                         .foregroundColor(.blue)
                 }
 
-                // 忽略与关闭
-                HStack(spacing: 20) {
-                    Button(action: {
-                        App更新服务.忽略版本(更新信息.版本号)
-                        忽略回调?()
-                        关闭回调?()
-                    }) {
-                        Text("忽略此版本")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Button(action: {
-                        关闭回调?()
-                    }) {
-                        Text("稍后提醒")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                // 忽略与关闭（下载中不显示）
+                if !下载中 {
+                    HStack(spacing: 20) {
+                        Button(action: {
+                            App更新服务.忽略版本(更新信息.版本号)
+                            忽略回调?()
+                            关闭回调?()
+                        }) {
+                            Text("忽略此版本")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Button(action: {
+                            关闭回调?()
+                        }) {
+                            Text("稍后提醒")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    // MARK: - 下载逻辑
+
+    /// 开始下载IPA
+    private func 开始下载() {
+        guard !更新信息.下载地址.isEmpty else {
+            下载失败 = true
+            return
+        }
+        下载中 = true
+        下载失败 = false
+        下载进度 = 0
+
+        App更新服务.下载IPA(
+            下载地址: 更新信息.下载地址,
+            进度回调: { 进度 in
+                下载进度 = 进度
+            },
+            完成回调: { 文件URL in
+                下载中 = false
+                if let 文件URL = 文件URL {
+                    // 下载完成，回调文件路径，由上层弹出分享面板
+                    下载完成回调?(文件URL)
+                } else {
+                    下载失败 = true
+                }
+            }
+        )
+    }
+}
+
+// MARK: - 进度条视图
+
+/// 简易进度条（iOS14兼容，不使用ProgressView）
+struct 进度条视图: View {
+    /// 进度（0.0~1.0）
+    let 进度: Double
+
+    var body: some View {
+        GeometryReader { 几何 in
+            ZStack(alignment: .leading) {
+                // 背景轨道
+                RoundedRectangle(cornerRadius: 4) // 4pt圆角轨道
+                    .fill(Color(UIColor.systemGray5))
+                // 进度填充
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.blue)
+                    .frame(width: 几何.size.width * CGFloat(min(max(进度, 0), 1)))
             }
         }
     }
