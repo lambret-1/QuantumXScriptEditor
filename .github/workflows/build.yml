@@ -47,3 +47,41 @@ jobs:
         with:
           name: 圈X脚本编辑器-unsigned
           path: 圈X脚本编辑器-unsigned.ipa
+
+      - name: 自动发布Release
+        run: |
+          # 从Info.plist读取版本号
+          VERSION=$(plutil -extract CFBundleShortVersionString raw -o - Info.plist | tr -d '\n')
+          echo "当前版本号: $VERSION"
+          TAG="v$VERSION"
+          IPA_NAME="圈X脚本编辑器-unsigned.ipa"
+
+          # 检查Release是否已存在，存在则先删除旧版本
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $TAG 已存在，删除旧版本后重新发布"
+            gh release delete "$TAG" --repo "${{ github.repository }}" --yes
+          fi
+
+          # 生成更新说明
+          RELEASE_NOTES=$(cat << 'EOF'
+          ## 自动构建发布
+
+          - 版本：$TAG
+          - 构建环境：Xcode 15.4 / macOS 14
+          - 最低支持：iOS 14.0
+          - 产物：未签名IPA（需自签名或侧载安装）
+
+          > 本Release由GitHub Actions自动构建发布，每次推送master分支自动更新。
+          EOF
+          )
+
+          # 创建新Release并上传IPA
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "$TAG 圈X脚本编辑器" \
+            --notes "$RELEASE_NOTES" \
+            --latest \
+            "$IPA_NAME"
+
+          echo "✅ Release发布成功: $TAG"
+          echo "下载地址: https://github.com/${{ github.repository }}/releases/download/$TAG/$IPA_NAME"
