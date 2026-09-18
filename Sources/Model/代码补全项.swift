@@ -14,7 +14,7 @@ struct 代码补全项: Identifiable, Equatable {
     let 分类: 补全分类
 
     /// 补全分类枚举
-    enum 补全分类: String {
+    enum 补全分类: String, CaseIterable {
         /// 圈X全局对象
         case 全局对象 = "全局对象"
         /// 请求相关
@@ -27,6 +27,18 @@ struct 代码补全项: Identifiable, Equatable {
         case 存储通知 = "存储通知"
         /// 控制流
         case 控制流 = "控制流"
+        /// 加密编码
+        case 加密编码 = "加密编码"
+        /// 日期时间
+        case 日期时间 = "日期时间"
+        /// 字符串处理
+        case 字符串处理 = "字符串处理"
+        /// 正则匹配
+        case 正则匹配 = "正则匹配"
+        /// 数学运算
+        case 数学运算 = "数学运算"
+        /// JSON处理
+        case JSON处理 = "JSON处理"
     }
 
     static func == (左侧: 代码补全项, 右侧: 代码补全项) -> Bool {
