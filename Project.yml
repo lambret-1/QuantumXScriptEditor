@@ -4,6 +4,7 @@ options:
   deploymentTarget:
     iOS: "14.0"
   xcodeVersion: "15.4"
+  projectFormat: Xcode 14.0
   createIntermediateGroups: true
 targets:
   圈X脚本编辑器:
