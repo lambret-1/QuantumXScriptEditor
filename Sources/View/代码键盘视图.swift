@@ -2,7 +2,7 @@ import UIKit
 
 // MARK: - 新手友好代码键盘
 
-/// 自定义代码键盘，替代系统键盘，提供符号、关键字、圈X API、常用片段四大页面
+/// 自定义代码键盘，替代系统键盘，提供英文26键、符号、关键字、圈X API、常用片段五大页面
 /// 面向新手，无需切换系统键盘即可输入常用代码
 final class 代码键盘视图: UIInputView {
     /// 插入文本回调（由编辑器注入）
@@ -26,9 +26,16 @@ final class 代码键盘视图: UIInputView {
     private let 底部功能行 = UIView()
     /// 当前选中的标签按钮
     private var 当前标签按钮: 键盘标签按钮?
+    /// 英文键盘大写模式
+    private var 大写模式 = false
+    /// 英文字母按钮列表（用于Shift切换时刷新标题）
+    private var 英文字母按钮列表: [键盘按键按钮] = []
+    /// 英文键盘Shift按钮引用
+    private var 英文shift按钮: UIButton?
 
-    /// 四个页面定义
+    /// 五个页面定义（英文为首页，方便输入字母）
     private let 页面定义: [(名称: String, 符号: String, 按钮列表: [键盘按钮数据])] = [
+        (名称: "英文", 符号: "A", 按钮列表: []),
         (名称: "符号", 符号: "≠", 按钮列表: 代码键盘数据.符号按钮),
         (名称: "关键字", 符号: "ƒ", 按钮列表: 代码键盘数据.关键字按钮),
         (名称: "圈X", 符号: "$", 按钮列表: 代码键盘数据.圈X按钮),
@@ -142,11 +149,19 @@ final class 代码键盘视图: UIInputView {
         ])
     }
 
-    /// 构建四个页面的按钮网格
+    /// 构建五个页面的按钮网格
     private func 构建页面() {
         for 页面 in 页面定义 {
             let 页面容器 = UIView()
             页面容器.translatesAutoresizingMaskIntoConstraints = false
+            页面容器.widthAnchor.constraint(equalToConstant: UIScreen.main.bounds.width).isActive = true
+
+            // 英文页面使用自定义QWERTY布局
+            if 页面.名称 == "英文" {
+                构建英文页面(容器: 页面容器)
+                页面堆栈.addArrangedSubview(页面容器)
+                continue
+            }
 
             // 垂直滚动容器（按钮多时可上下滚动）
             let 滚动视图 = UIScrollView()
@@ -202,8 +217,7 @@ final class 代码键盘视图: UIInputView {
                 网格堆栈.addArrangedSubview(行堆栈)
             }
 
-            // 页面容器宽度约束（等于滚动视图宽度）
-            页面容器.widthAnchor.constraint(equalToConstant: UIScreen.main.bounds.width).isActive = true
+            // 页面容器宽度已在上方设置
 
             NSLayoutConstraint.activate([
                 滚动视图.topAnchor.constraint(equalTo: 页面容器.topAnchor, constant: 8),
@@ -219,6 +233,168 @@ final class 代码键盘视图: UIInputView {
             ])
 
             页面堆栈.addArrangedSubview(页面容器)
+        }
+    }
+
+    // MARK: - 英文26键键盘页面
+
+    /// 构建英文QWERTY键盘页面（3行布局，带Shift大小写切换）
+    private func 构建英文页面(容器: UIView) {
+        // 主垂直堆栈
+        let 主堆栈 = UIStackView()
+        主堆栈.axis = .vertical
+        主堆栈.spacing = 8 // 行间距8pt，标准键盘行距
+        主堆栈.alignment = .fill
+        主堆栈.translatesAutoresizingMaskIntoConstraints = false
+        容器.addSubview(主堆栈)
+
+        // 第一行：Q W E R T Y U I O P
+        let 第一行 = 创建英文行(字母: ["Q","W","E","R","T","Y","U","I","O","P"], 左右边距: 0)
+        主堆栈.addArrangedSubview(第一行)
+
+        // 第二行：A S D F G H J K L（左右留边距，模拟真实键盘错位）
+        let 第二行 = 创建英文行(字母: ["A","S","D","F","G","H","J","K","L"], 左右边距: 16)
+        主堆栈.addArrangedSubview(第二行)
+
+        // 第三行：Shift + Z X C V B N M + 删除
+        let 第三行 = UIStackView()
+        第三行.axis = .horizontal
+        第三行.spacing = 6 // 列间距6pt
+        第三行.alignment = .fill
+        第三行.distribution = .fill
+
+        // Shift按钮
+        let shift按钮 = UIButton(type: .system)
+        shift按钮.setTitle("⇧", for: .normal)
+        shift按钮.titleLabel?.font = .systemFont(ofSize: 18, weight: .regular) // 18ptShift图标
+        shift按钮.setTitleColor(.label, for: .normal)
+        shift按钮.backgroundColor = .systemGray5 // Shift键灰色底，与功能键一致
+        shift按钮.layer.cornerRadius = 6
+        shift按钮.layer.shadowColor = UIColor.black.cgColor
+        shift按钮.layer.shadowOpacity = 0.15
+        shift按钮.layer.shadowOffset = CGSize(width: 0, height: 1)
+        shift按钮.layer.shadowRadius = 1
+        shift按钮.addTarget(self, action: #selector(英文shift按钮点击), for: .touchUpInside)
+        shift按钮.translatesAutoresizingMaskIntoConstraints = false
+        shift按钮.widthAnchor.constraint(equalToConstant: 44).isActive = true // Shift键44pt宽
+        英文shift按钮 = shift按钮
+        第三行.addArrangedSubview(shift按钮)
+
+        // Z X C V B N M 七个字母
+        let 字母行内堆栈 = UIStackView()
+        字母行内堆栈.axis = .horizontal
+        字母行内堆栈.spacing = 6
+        字母行内堆栈.distribution = .fillEqually
+        字母行内堆栈.alignment = .fill
+        for 字母 in ["Z","X","C","V","B","N","M"] {
+            let 按钮 = 创建英文字母按钮(字母: 字母)
+            字母行内堆栈.addArrangedSubview(按钮)
+        }
+        第三行.addArrangedSubview(字母行内堆栈)
+
+        // 删除按钮
+        let 删除按钮 = UIButton(type: .system)
+        删除按钮.setTitle("⌫", for: .normal)
+        删除按钮.titleLabel?.font = .systemFont(ofSize: 18, weight: .regular)
+        删除按钮.setTitleColor(.label, for: .normal)
+        删除按钮.backgroundColor = .systemGray5
+        删除按钮.layer.cornerRadius = 6
+        删除按钮.layer.shadowColor = UIColor.black.cgColor
+        删除按钮.layer.shadowOpacity = 0.15
+        删除按钮.layer.shadowOffset = CGSize(width: 0, height: 1)
+        删除按钮.layer.shadowRadius = 1
+        删除按钮.addTarget(self, action: #selector(删除按钮点击), for: .touchUpInside)
+        删除按钮.translatesAutoresizingMaskIntoConstraints = false
+        删除按钮.widthAnchor.constraint(equalToConstant: 44).isActive = true // 删除键44pt宽
+        第三行.addArrangedSubview(删除按钮)
+
+        主堆栈.addArrangedSubview(第三行)
+
+        // 布局约束：垂直居中，左右留边距
+        NSLayoutConstraint.activate([
+            主堆栈.centerYAnchor.constraint(equalTo: 容器.centerYAnchor),
+            主堆栈.leadingAnchor.constraint(equalTo: 容器.leadingAnchor, constant: 8), // 左边距8pt
+            主堆栈.trailingAnchor.constraint(equalTo: 容器.trailingAnchor, constant: -8), // 右边距8pt
+        ])
+
+        // 初始刷新（设置为小写）
+        刷新英文页面()
+    }
+
+    /// 创建一行英文字母按钮
+    private func 创建英文行(字母: [String], 左右边距: CGFloat) -> UIView {
+        let 行容器 = UIView()
+        行容器.translatesAutoresizingMaskIntoConstraints = false
+
+        let 行堆栈 = UIStackView()
+        行堆栈.axis = .horizontal
+        行堆栈.spacing = 6 // 列间距6pt
+        行堆栈.distribution = .fillEqually
+        行堆栈.alignment = .fill
+        行堆栈.translatesAutoresizingMaskIntoConstraints = false
+        行容器.addSubview(行堆栈)
+
+        for 字母 in 字母 {
+            let 按钮 = 创建英文字母按钮(字母: 字母)
+            行堆栈.addArrangedSubview(按钮)
+        }
+
+        NSLayoutConstraint.activate([
+            行堆栈.topAnchor.constraint(equalTo: 行容器.topAnchor),
+            行堆栈.bottomAnchor.constraint(equalTo: 行容器.bottomAnchor),
+            行堆栈.leadingAnchor.constraint(equalTo: 行容器.leadingAnchor, constant: 左右边距),
+            行堆栈.trailingAnchor.constraint(equalTo: 行容器.trailingAnchor, constant: -左右边距),
+            行容器.heightAnchor.constraint(equalToConstant: 40) // 字母键40pt高，标准触控高度
+        ])
+
+        return 行容器
+    }
+
+    /// 创建单个英文字母按钮
+    private func 创建英文字母按钮(字母: String) -> 键盘按键按钮 {
+        let 按钮 = 键盘按键按钮(type: .system)
+        按钮.是否为字母键 = true
+        按钮.字母小写 = 字母.lowercased()
+        按钮.字母大写 = 字母.uppercased()
+        按钮.setTitle(字母.lowercased(), for: .normal)
+        按钮.titleLabel?.font = .systemFont(ofSize: 18, weight: .regular) // 18pt字母，清晰易读
+        按钮.setTitleColor(.label, for: .normal)
+        按钮.backgroundColor = .systemBackground // 白色按键
+        按钮.layer.cornerRadius = 6 // 6pt圆角
+        按钮.layer.shadowColor = UIColor.black.cgColor
+        按钮.layer.shadowOpacity = 0.15
+        按钮.layer.shadowOffset = CGSize(width: 0, height: 1)
+        按钮.layer.shadowRadius = 1
+        按钮.addTarget(self, action: #selector(字母按钮点击(_:)), for: .touchUpInside)
+        英文字母按钮列表.append(按钮)
+        return 按钮
+    }
+
+    /// 刷新英文页面所有字母按钮的大小写显示
+    private func 刷新英文页面() {
+        for 按钮 in 英文字母按钮列表 {
+            let 显示文本 = 大写模式 ? 按钮.字母大写 : 按钮.字母小写
+            按钮.setTitle(显示文本, for: .normal)
+        }
+        // 更新Shift按钮外观
+        英文shift按钮?.backgroundColor = 大写模式 ? .systemBlue : .systemGray5
+        英文shift按钮?.setTitleColor(大写模式 ? .white : .label, for: .normal)
+    }
+
+    /// 英文Shift按钮点击：切换大小写
+    @objc private func 英文shift按钮点击() {
+        大写模式.toggle()
+        刷新英文页面()
+    }
+
+    /// 英文字母按钮点击：根据当前大小写模式插入对应字母
+    @objc private func 字母按钮点击(_ 按钮: 键盘按键按钮) {
+        let 插入文本 = 大写模式 ? 按钮.字母大写 : 按钮.字母小写
+        插入文本回调?(插入文本)
+        // 输入一个字母后自动切回小写（模拟系统键盘行为）
+        if 大写模式 {
+            大写模式 = false
+            刷新英文页面()
         }
     }
 
@@ -360,7 +536,14 @@ final class 键盘标签按钮: UIButton {
 
 /// 按键按钮（关联按钮数据）
 final class 键盘按键按钮: UIButton {
+    /// 关联的按钮数据
     var 按钮数据: 键盘按钮数据?
+    /// 是否为英文字母键（用于大小写切换）
+    var 是否为字母键: Bool = false
+    /// 字母小写形式
+    var 字母小写: String = ""
+    /// 字母大写形式
+    var 字母大写: String = ""
 }
 
 // MARK: - 键盘数据定义
