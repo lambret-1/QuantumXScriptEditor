@@ -1,11 +1,21 @@
 import SwiftUI
 
-/// 脚本列表页，展示本地所有脚本，支持新建、删除、进入编辑
+/// 脚本列表页，展示本地所有脚本，支持新建、删除、进入编辑、更新检测
 struct 脚本列表页: View {
     /// 列表视图模型
     @StateObject private var 视图模型 = 脚本列表视图模型()
     /// 退出模式（iOS14兼容）
     @Environment(\.presentationMode) private var 退出模式
+    /// 更新信息
+    @State private var 更新信息: App更新模型?
+    /// 是否显示更新弹窗
+    @State private var 显示更新弹窗 = false
+    /// 是否显示无更新弹窗
+    @State private var 显示无更新弹窗 = false
+    /// 是否正在检测更新
+    @State private var 检测更新中 = false
+    /// 是否显示更新检测中弹窗
+    @State private var 显示检测中弹窗 = false
 
     var body: some View {
         NavigationView {
@@ -29,14 +39,25 @@ struct 脚本列表页: View {
                 }
                 .listStyle(InsetGroupedListStyle()) // iOS14兼容的分组列表样式
                 .navigationBarTitle("圈X脚本编辑器", displayMode: .large)
-                .navigationBarItems(trailing:
-                    Button(action: {
-                        视图模型.显示新建弹窗 = true
-                    }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.title2) // 标题2字号，加号按钮醒目
-                    }
+                .navigationBarItems(
+                    leading:
+                        Button(action: {
+                            手动检测更新()
+                        }) {
+                            Image(systemName: "arrow.up.arrow.down.circle")
+                                .font(.title3) // 标题3字号，更新检测按钮
+                        },
+                    trailing:
+                        Button(action: {
+                            视图模型.显示新建弹窗 = true
+                        }) {
+                            Image(systemName: "plus.circle.fill")
+                                .font(.title2) // 标题2字号，加号按钮醒目
+                        }
                 )
+                .onAppear {
+                    自动检测更新()
+                }
 
                 // 错误提示浮层
                 if let 错误 = 视图模型.错误提示 {
@@ -63,6 +84,65 @@ struct 脚本列表页: View {
         .navigationViewStyle(StackNavigationViewStyle()) // 竖屏单栏堆叠样式，避免iPad分栏
         // 新建脚本输入弹窗覆盖层（iOS14 Alert不支持TextField，使用自定义覆盖层）
         .overlay(新建脚本弹窗覆盖层)
+        // 更新检测弹窗覆盖层
+        .overlay(更新弹窗覆盖层)
+    }
+
+    // MARK: - 更新检测逻辑
+
+    /// 自动检测更新（启动时每日一次）
+    private func 自动检测更新() {
+        guard App更新服务.需要自动检测 else { return }
+        App更新服务.记录检测时间()
+        App更新服务.检测最新版本 { 信息 in
+            guard let 信息 = 信息 else { return }
+            // 检查是否被忽略
+            if let 忽略版本 = App更新服务.忽略版本号, 忽略版本 == 信息.版本号 {
+                return
+            }
+            if App更新服务.有新版本(最新版本: 信息.版本号, 当前版本: App更新服务.当前版本号) {
+                更新信息 = 信息
+                显示更新弹窗 = true
+            }
+        }
+    }
+
+    /// 手动检测更新
+    private func 手动检测更新() {
+        检测更新中 = true
+        显示检测中弹窗 = true
+        App更新服务.检测最新版本 { 信息 in
+            检测更新中 = false
+            显示检测中弹窗 = false
+            guard let 信息 = 信息 else {
+                // 检测失败，提示无更新（避免用户困惑）
+                显示无更新弹窗 = true
+                return
+            }
+            if App更新服务.有新版本(最新版本: 信息.版本号, 当前版本: App更新服务.当前版本号) {
+                更新信息 = 信息
+                显示更新弹窗 = true
+            } else {
+                显示无更新弹窗 = true
+            }
+        }
+    }
+
+    /// 更新弹窗覆盖层
+    private var 更新弹窗覆盖层: some View {
+        Group {
+            if 显示检测中弹窗 {
+                更新检测弹窗(更新信息: App更新模型(版本号: "", 标签: "", 发布说明: "", 下载地址: "", 页面地址: "", 发布时间: ""), 检测中: true)
+            } else if 显示更新弹窗, let 信息 = 更新信息 {
+                更新检测弹窗(更新信息: 信息) {
+                    显示更新弹窗 = false
+                }
+            } else if 显示无更新弹窗 {
+                无更新提示弹窗 {
+                    显示无更新弹窗 = false
+                }
+            }
+        }
     }
 
     /// 新建脚本输入弹窗覆盖层（因为iOS14 Alert不支持TextField）
