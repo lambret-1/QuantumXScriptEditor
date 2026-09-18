@@ -56,7 +56,7 @@ final class 脚本测试视图模型: ObservableObject {
 
     /// 解析请求头文本为字典
     private var 解析请求头: [String: String] {
-        var 字典: [String: String] = {}
+        var 字典: [String: String] = [:]
         let 行数组 = 请求头文本.components(separatedBy: .newlines)
         for 行 in 行数组 {
             let 部分 = 行.split(separator: ":", maxSplits: 1)
