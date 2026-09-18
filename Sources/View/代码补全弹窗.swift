@@ -77,7 +77,7 @@ struct 补全项行视图: View {
                 HStack {
                     Text(项.触发词)
                         .font(.system(size: 15, design: .monospaced)) // 15pt等宽字体，API名醒目
-                        .foregroundColor(.systemBlue)
+                        .foregroundColor(Color(UIColor.systemBlue))
                     Spacer()
                     Text(项.分类.rawValue)
                         .font(.caption2)
