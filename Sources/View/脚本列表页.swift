@@ -16,6 +16,10 @@ struct 脚本列表页: View {
     @State private var 检测更新中 = false
     /// 是否显示更新检测中弹窗
     @State private var 显示检测中弹窗 = false
+    /// 下载完成后要分享的IPA文件URL
+    @State private var 分享文件URL: URL?
+    /// 是否显示分享面板
+    @State private var 显示分享面板 = false
 
     var body: some View {
         NavigationView {
@@ -86,6 +90,16 @@ struct 脚本列表页: View {
         .overlay(新建脚本弹窗覆盖层)
         // 更新检测弹窗覆盖层
         .overlay(更新弹窗覆盖层)
+        // 分享面板（下载IPA完成后弹出）
+        .sheet(isPresented: $显示分享面板) {
+            if let 文件URL = 分享文件URL {
+                分享面板视图(文件URL: 文件URL) {
+                    显示分享面板 = false
+                    分享文件URL = nil
+                }
+                .background(透明背景()) // 透明背景，只显示系统分享面板
+            }
+        }
     }
 
     // MARK: - 更新检测逻辑
@@ -134,9 +148,13 @@ struct 脚本列表页: View {
             if 显示检测中弹窗 {
                 更新检测弹窗(更新信息: App更新模型(版本号: "", 标签: "", 发布说明: "", 下载地址: "", 页面地址: "", 发布时间: ""), 检测中: true)
             } else if 显示更新弹窗, let 信息 = 更新信息 {
-                更新检测弹窗(更新信息: 信息) {
+                更新检测弹窗(更新信息: 信息, 关闭回调: {
                     显示更新弹窗 = false
-                }
+                }, 下载完成回调: { 文件URL in
+                    分享文件URL = 文件URL
+                    显示更新弹窗 = false
+                    显示分享面板 = true
+                })
             } else if 显示无更新弹窗 {
                 无更新提示弹窗 {
                     显示无更新弹窗 = false
@@ -261,4 +279,16 @@ struct 新建脚本弹窗: View {
         .cornerRadius(16)
         .padding(.horizontal, 40)
     }
+}
+
+// MARK: - 透明背景（用于sheet透明）
+
+/// 透明背景视图，使sheet背景透明，只显示内容
+struct 透明背景: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let 视图 = UIView()
+        视图.backgroundColor = .clear
+        return 视图
+    }
+    func updateUIView(_ 视图: UIView, context: Context) {}
 }
