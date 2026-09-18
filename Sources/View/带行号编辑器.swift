@@ -12,8 +12,6 @@ struct 带行号代码编辑器: UIViewRepresentable {
     var 字体大小: CGFloat
     /// 是否使用自定义代码键盘（默认false，使用系统键盘）
     @Binding var 使用代码键盘: Bool
-    /// 上次使用代码键盘状态（用于检测变化）
-    private var 上次使用代码键盘 = false
 
     func makeUIView(context: Context) -> 代码编辑器容器视图 {
         let 容器 = 代码编辑器容器视图(字体大小: 字体大小)
@@ -184,7 +182,8 @@ final class 代码编辑器容器视图: UIView {
     /// 自定义代码键盘
     let 代码键盘: 代码键盘视图
     /// 当前是否使用自定义代码键盘
-    private var 使用代码键盘 = true
+    /// 当前是否使用自定义代码键盘
+    var 使用代码键盘 = true
 
     init(字体大小: CGFloat) {
         文本视图 = UITextView()

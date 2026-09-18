@@ -99,10 +99,10 @@ struct 工具栏视图: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
-                    .foregroundColor(使用代码键盘 ? .white : .indigo)
+                    .foregroundColor(使用代码键盘 ? .white : Color(UIColor.systemIndigo))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 8)
-                    .background(使用代码键盘 ? Color.indigo : Color.indigo.opacity(0.12))
+                    .background(使用代码键盘 ? Color(UIColor.systemIndigo) : Color(UIColor.systemIndigo).opacity(0.12))
                     .cornerRadius(8)
                 }
                 工具按钮(标题: "保存", 图标: "square.and.arrow.down", 颜色: .blue) {
