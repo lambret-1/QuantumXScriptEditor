@@ -242,7 +242,7 @@ struct 重命名弹窗: View {
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(Color.systemGray6)
+                .background(Color(UIColor.systemGray6))
                 .cornerRadius(8)
 
                 Button("确定") {
