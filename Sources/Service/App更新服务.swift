@@ -80,7 +80,7 @@ final class App更新服务 {
 
         URLSession.shared.dataTask(with: 请求) { 数据, 响应, 错误 in
             DispatchQueue.main.async {
-                guard error == nil,
+                guard 错误 == nil,
                       let http响应 = 响应 as? HTTPURLResponse,
                       http响应.statusCode == 200,
                       let 数据 = 数据 else {
