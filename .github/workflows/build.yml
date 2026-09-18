@@ -66,18 +66,23 @@ jobs:
             gh release delete "$TAG" --repo "${{ github.repository }}" --yes
           fi
 
+          # 写入发布说明到临时文件
+          cat > release_notes.md << NOTESEOF
+          ## 自动构建发布
+
+          - 版本：$TAG
+          - 构建环境：Xcode 15.4 / macOS 14
+          - 最低支持：iOS 14.0
+          - 产物：未签名IPA（需自签名或侧载安装）
+
+          > 本Release由GitHub Actions自动构建发布，每次推送master分支自动更新。
+          NOTESEOF
+
           # 创建新Release并上传IPA
           gh release create "$TAG" \
             --repo "${{ github.repository }}" \
             --title "$TAG 圈X脚本编辑器" \
-            --notes "## 自动构建发布
-
-- 版本：$TAG
-- 构建环境：Xcode 15.4 / macOS 14
-- 最低支持：iOS 14.0
-- 产物：未签名IPA（需自签名或侧载安装）
-
-> 本Release由GitHub Actions自动构建发布，每次推送master分支自动更新。" \
+            --notes-file release_notes.md \
             "$IPA_NAME"
 
           echo "Release发布成功: $TAG"
