@@ -69,6 +69,26 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.0.0
+- 获取信息功能新增用户核心信息识别，里程碑版本v1.0.0
+- 自动识别9类用户核心信息字段：
+  - 用户ID（userId/uid/id/memberId等）
+  - 用户名/昵称（userName/nickname/name/displayName等）
+  - 手机号（phone/mobile/tel/phoneNumber等）
+  - 邮箱（email/mail/emailAddress等）
+  - 头像（avatar/headImg/photo/portrait等）
+  - 积分余额（points/score/balance/coin/money等）
+  - 登录Token（token/accessToken/sessionId/jwt等）
+  - 性别（gender/sex等）
+  - 生日（birthday/birthDate/age等）
+- 短关键词（id/name/phone/token等）仅精确匹配，避免误判
+- 分析结果新增蓝色「用户核心信息」展示区域，显示字段路径、当前值、类型标签
+- 自动生成4类用户信息模板：
+  - 导出用户核心信息：通过通知弹窗展示所有识别到的用户信息
+  - 隐私保护：手机号中间4位星号、邮箱前缀星号掩码
+  - 修改用户昵称：一键修改用户昵称字段
+  - 修改积分余额：一键修改积分/余额数值（自动判断数字/字符串类型）
+
 ### v0.9.9
 - 全新应用图标设计，完美契合「圈X脚本编辑器」名称：
   - 发光圆环代表「圈」（QuantumX的环形轨道）

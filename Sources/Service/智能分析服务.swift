@@ -25,6 +25,16 @@ enum 智能分析服务 {
             case 广告链接
             case 广告图片
             case 广告数组
+            // 用户核心信息
+            case 用户ID
+            case 用户名
+            case 手机号
+            case 邮箱
+            case 头像
+            case 积分余额
+            case 登录Token
+            case 性别
+            case 生日
         }
     }
 
@@ -34,11 +44,13 @@ enum 智能分析服务 {
         var 会员字段: [识别字段] = []
         /// 识别到的广告相关字段
         var 广告字段: [识别字段] = []
+        /// 识别到的用户核心信息字段
+        var 用户核心字段: [识别字段] = []
         /// 原始数据格式
         var 数据格式: String = "未知"
         /// 是否识别到有效信息
         var 有结果: Bool {
-            !会员字段.isEmpty || !广告字段.isEmpty
+            !会员字段.isEmpty || !广告字段.isEmpty || !用户核心字段.isEmpty
         }
     }
 
@@ -97,6 +109,124 @@ enum 智能分析服务 {
         "ad_position", "bannerUrl", "banner_url", "bannerImage", "banner_image",
         "popupUrl", "popup_url", "popupImage", "popup_image"
     ]
+
+    // MARK: - 用户核心信息关键词配置
+
+    /// 用户ID字段关键词
+    private static let 用户ID关键词 = [
+        "userId", "user_id", "uid", "id", "memberId", "member_id",
+        "accountId", "account_id", "customerId", "customer_id",
+        "profileId", "profile_id", "userid", "uuid"
+    ]
+
+    /// 用户名/昵称字段关键词
+    private static let 用户名关键词 = [
+        "userName", "user_name", "username", "nickname", "nickName",
+        "nick_name", "name", "screenName", "screen_name", "displayName",
+        "display_name", "account", "accountName", "account_name",
+        "loginName", "login_name", "realName", "real_name"
+    ]
+
+    /// 手机号字段关键词
+    private static let 手机号关键词 = [
+        "phone", "mobile", "tel", "telephone", "cellphone", "cellPhone",
+        "phoneNumber", "phone_number", "mobileNumber", "mobile_number",
+        "telNumber", "tel_number", "contactPhone", "contact_phone"
+    ]
+
+    /// 邮箱字段关键词
+    private static let 邮箱关键词 = [
+        "email", "eMail", "e_mail", "mail", "mailAddress", "mail_address",
+        "emailAddress", "email_address", "userEmail", "user_email",
+        "accountEmail", "account_email"
+    ]
+
+    /// 头像字段关键词
+    private static let 头像关键词 = [
+        "avatar", "avatarUrl", "avatar_url", "headImg", "head_img",
+        "headImage", "head_image", "headIcon", "head_icon", "headUrl",
+        "head_url", "photo", "photoUrl", "photo_url", "portrait",
+        "portraitUrl", "portrait_url", "profileImage", "profile_image",
+        "profileImg", "profile_img", "userAvatar", "user_avatar"
+    ]
+
+    /// 积分/余额字段关键词
+    private static let 积分余额关键词 = [
+        "points", "point", "score", "credit", "credits", "balance",
+        "coin", "coins", "gold", "goldCoin", "gold_coin", "money",
+        "amount", "wallet", "walletBalance", "wallet_balance",
+        "integral", "bonus", "reward", "vipPoints", "vip_points",
+        "growthValue", "growth_value", "exp", "experience"
+    ]
+
+    /// 登录Token字段关键词
+    private static let 登录Token关键词 = [
+        "token", "accessToken", "access_token", "refreshToken", "refresh_token",
+        "authToken", "auth_token", "sessionId", "session_id", "session",
+        "sessionToken", "session_token", "loginToken", "login_token",
+        "jwt", "authorization", "auth", "apiKey", "api_key", "secret",
+        "appToken", "app_token", "userToken", "user_token"
+    ]
+
+    /// 性别字段关键词
+    private static let 性别关键词 = [
+        "gender", "sex", "userGender", "user_gender", "memberGender",
+        "member_gender", "profileGender", "profile_gender"
+    ]
+
+    /// 生日字段关键词
+    private static let 生日关键词 = [
+        "birthday", "birthDay", "birth_day", "birthDate", "birth_date",
+        "dob", "dateOfBirth", "date_of_birth", "userBirthday",
+        "user_birthday", "memberBirthday", "member_birthday", "age"
+    ]
+
+    // MARK: - 用户核心字段匹配辅助
+
+    /// 短关键词列表（仅精确匹配，避免误判如id匹配到valid等）
+    private static let 短关键词: Set<String> = ["id", "uid", "sex", "age", "exp", "dob", "mail", "name", "phone", "token", "auth", "jwt"]
+
+    /// 判断键名是否匹配用户核心字段
+    private static func 匹配用户核心字段(小写键: String) -> Bool {
+        let 所有关键词 = 用户ID关键词 + 用户名关键词 + 手机号关键词 + 邮箱关键词 +
+                        头像关键词 + 积分余额关键词 + 登录Token关键词 + 性别关键词 + 生日关键词
+        return 所有关键词.contains { 关键词 in
+            let 小写关键词 = 关键词.lowercased()
+            if 短关键词.contains(小写关键词) {
+                // 短关键词仅精确匹配
+                return 小写键 == 小写关键词
+            } else {
+                // 长关键词精确或后缀匹配
+                return 小写键 == 小写关键词 || 小写键.hasSuffix(小写关键词)
+            }
+        }
+    }
+
+    /// 判断用户字段的具体类型
+    private static func 判断用户字段类型(小写键: String) -> 识别字段.字段类型 {
+        if 匹配关键词列表(小写键: 小写键, 列表: 用户ID关键词) { return .用户ID }
+        if 匹配关键词列表(小写键: 小写键, 列表: 用户名关键词) { return .用户名 }
+        if 匹配关键词列表(小写键: 小写键, 列表: 手机号关键词) { return .手机号 }
+        if 匹配关键词列表(小写键: 小写键, 列表: 邮箱关键词) { return .邮箱 }
+        if 匹配关键词列表(小写键: 小写键, 列表: 头像关键词) { return .头像 }
+        if 匹配关键词列表(小写键: 小写键, 列表: 积分余额关键词) { return .积分余额 }
+        if 匹配关键词列表(小写键: 小写键, 列表: 登录Token关键词) { return .登录Token }
+        if 匹配关键词列表(小写键: 小写键, 列表: 性别关键词) { return .性别 }
+        if 匹配关键词列表(小写键: 小写键, 列表: 生日关键词) { return .生日 }
+        return .用户名
+    }
+
+    /// 匹配关键词列表（短关键词精确匹配，长关键词精确或后缀匹配）
+    private static func 匹配关键词列表(小写键: String, 列表: [String]) -> Bool {
+        列表.contains { 关键词 in
+            let 小写关键词 = 关键词.lowercased()
+            if 短关键词.contains(小写关键词) {
+                return 小写键 == 小写关键词
+            } else {
+                return 小写键 == 小写关键词 || 小写键.hasSuffix(小写关键词)
+            }
+        }
+    }
 
     // MARK: - 主分析入口
 
@@ -198,6 +328,56 @@ enum 智能分析服务 {
                 代码: 代码,
                 分类: "去广告"
             ))
+        }
+
+        // 生成用户核心信息相关模板
+        if !结果.用户核心字段.isEmpty {
+            // 1. 导出用户核心信息模板
+            let 导出代码 = 生成导出用户信息模板(用户字段: 结果.用户核心字段)
+            模板列表.append(生成模板(
+                名称: "导出用户核心信息（\(结果.用户核心字段.count)项）",
+                说明: "通过通知弹窗展示识别到的用户ID、昵称、手机等核心信息",
+                代码: 导出代码,
+                分类: "用户信息"
+            ))
+
+            // 2. 隐藏手机号和邮箱（隐私保护）
+            let 隐私字段 = 结果.用户核心字段.filter { $0.类型 == .手机号 || $0.类型 == .邮箱 }
+            if !隐私字段.isEmpty {
+                let 隐私代码 = 生成隐私保护模板(隐私字段: 隐私字段)
+                模板列表.append(生成模板(
+                    名称: "隐私保护（隐藏手机/邮箱）",
+                    说明: "将手机号和邮箱替换为星号掩码，保护用户隐私",
+                    代码: 隐私代码,
+                    分类: "用户信息"
+                ))
+            }
+
+            // 3. 修改用户昵称
+            let 用户名字段 = 结果.用户核心字段.filter { $0.类型 == .用户名 }
+            if !用户名字段.isEmpty {
+                let 第一个 = 用户名字段[0]
+                let 昵称代码 = 生成修改昵称模板(字段路径: 第一个.字段路径, 当前值: 第一个.当前值)
+                模板列表.append(生成模板(
+                    名称: "修改用户昵称（\(第一个.字段路径)）",
+                    说明: "将用户昵称修改为自定义名称",
+                    代码: 昵称代码,
+                    分类: "用户信息"
+                ))
+            }
+
+            // 4. 修改积分余额
+            let 积分字段 = 结果.用户核心字段.filter { $0.类型 == .积分余额 }
+            if !积分字段.isEmpty {
+                let 第一个 = 积分字段[0]
+                let 积分代码 = 生成修改积分模板(字段路径: 第一个.字段路径, 当前值: 第一个.当前值)
+                模板列表.append(生成模板(
+                    名称: "修改积分余额（\(第一个.字段路径)）",
+                    说明: "将积分/余额字段修改为指定数值",
+                    代码: 积分代码,
+                    分类: "用户信息"
+                ))
+            }
         }
 
         // 如果没有识别到任何信息，给出通用模板
@@ -351,6 +531,15 @@ $done($response);
                         字段路径: 当前路径,
                         当前值: String(describing: 值),
                         类型: 类型
+                    ))
+                }
+                // 检查用户核心信息字段（短关键词仅精确匹配，避免误判）
+                else if 匹配用户核心字段(小写键: 小写键) {
+                    let 用户类型 = 判断用户字段类型(小写键: 小写键)
+                    结果.用户核心字段.append(识别字段(
+                        字段路径: 当前路径,
+                        当前值: String(describing: 值),
+                        类型: 用户类型
                     ))
                 }
 
@@ -550,5 +739,153 @@ if (Array.isArray(列表)) {
 $response.body = JSON.stringify(body);
 $done($response);
 """
+    }
+
+    // MARK: - 用户核心信息模板生成
+
+    /// 生成导出用户核心信息模板
+    private static func 生成导出用户信息模板(用户字段: [识别字段]) -> String {
+        let 字段列表文本 = 用户字段.map { "\"\($0.字段路径)\"" }.joined(separator: ",\n    ")
+        let 类型映射 = 用户字段.map { "case \"\($0.字段路径)\": return \"\(类型文本($0.类型))\"" }.joined(separator: "\n        ")
+        return """
+// ======================
+// 功能：导出用户核心信息
+// 识别到\(用户字段.count)项用户核心字段，通过通知弹窗展示
+// ======================
+let body = JSON.parse($response.body);
+
+// 要导出的用户字段路径列表
+const 用户字段 = [
+    \(字段列表文本)
+];
+
+// 安全读取嵌套字段
+function 读取字段(obj, 路径) {
+    return 路径.split(".").reduce(function(o, k) {
+        return (o || {})[k];
+    }, obj);
+}
+
+// 字段类型名称
+function 字段类型(路径) {
+    switch (路径) {
+        \(类型映射)
+        default: return "其他";
+    }
+}
+
+// 收集用户信息
+let 信息列表 = [];
+用户字段.forEach(function(路径) {
+    const 值 = 读取字段(body, 路径);
+    if (值 !== undefined && 值 !== null) {
+        信息列表.push(字段类型(路径) + "：" + String(值));
+    }
+});
+
+// 通过通知展示用户核心信息
+if (信息列表.length > 0) {
+    $notify("用户核心信息", "共" + 信息列表.length + "项", 信息列表.join("\\n"));
+}
+$done($response);
+"""
+    }
+
+    /// 生成隐私保护模板（隐藏手机号和邮箱）
+    private static func 生成隐私保护模板(隐私字段: [识别字段]) -> String {
+        var 处理代码 = ""
+        for 字段 in 隐私字段 {
+            let 路径部分 = 字段.字段路径.components(separatedBy: ".")
+            var 父级路径 = "body"
+            var 导航代码 = ""
+            for i in 0..<(路径部分.count - 1) {
+                导航代码 += "if (\(父级路径).\(路径部分[i]) !== undefined) { "
+                父级路径 += ".\(路径部分[i])"
+            }
+            let 最终字段 = 路径部分.last ?? 字段.字段路径
+            let 关闭括号 = String(repeating: "}", count: 路径部分.count - 1)
+            if 字段.类型 == .手机号 {
+                处理代码 += "\(导航代码)\(父级路径).\(最终字段) = String(\(父级路径).\(最终字段)).replace(/(\\d{3})\\d{4}(\\d{4})/, \"$1****$2\");\(关闭括号)\n"
+            } else {
+                处理代码 += "\(导航代码){\n    let _email = String(\(父级路径).\(最终字段));\n    let _at = _email.indexOf(\"@\");\n    if (_at > 2) { \(父级路径).\(最终字段) = _email.substring(0, 2) + \"****\" + _email.substring(_at); }\n}\(关闭括号)\n"
+            }
+        }
+        return """
+// ======================
+// 功能：隐私保护（隐藏手机号和邮箱）
+// 识别到\(隐私字段.count)个隐私字段，替换为星号掩码
+// ======================
+let body = JSON.parse($response.body);
+
+\(处理代码)$response.body = JSON.stringify(body);
+$done($response);
+"""
+    }
+
+    /// 生成修改用户昵称模板
+    private static func 生成修改昵称模板(字段路径: String, 当前值: String) -> String {
+        let 路径部分 = 字段路径.components(separatedBy: ".")
+        var 导航代码 = ""
+        var 父级路径 = "body"
+        for i in 0..<(路径部分.count - 1) {
+            let 字段名 = 路径部分[i]
+            导航代码 += "if (\(父级路径).\(字段名) === undefined) { \(父级路径).\(字段名) = {}; }\n"
+            父级路径 += ".\(字段名)"
+        }
+        let 最终字段 = 路径部分.last ?? 字段路径
+        return """
+// ======================
+// 功能：修改用户昵称
+// 识别字段：\(字段路径)（当前值：\(当前值)）
+// ======================
+let body = JSON.parse($response.body);
+\(导航代码)// 修改用户昵称为自定义名称
+\(父级路径).\(最终字段) = "新昵称";
+$response.body = JSON.stringify(body);
+$done($response);
+"""
+    }
+
+    /// 生成修改积分余额模板
+    private static func 生成修改积分模板(字段路径: String, 当前值: String) -> String {
+        let 路径部分 = 字段路径.components(separatedBy: ".")
+        var 导航代码 = ""
+        var 父级路径 = "body"
+        for i in 0..<(路径部分.count - 1) {
+            let 字段名 = 路径部分[i]
+            导航代码 += "if (\(父级路径).\(字段名) === undefined) { \(父级路径).\(字段名) = {}; }\n"
+            父级路径 += ".\(字段名)"
+        }
+        let 最终字段 = 路径部分.last ?? 字段路径
+        // 判断当前值是数字还是字符串
+        let 是否数字 = Double(当前值) != nil
+        let 新值 = 是否数字 ? "999999" : "\"999999\""
+        return """
+// ======================
+// 功能：修改积分余额
+// 识别字段：\(字段路径)（当前值：\(当前值)）
+// ======================
+let body = JSON.parse($response.body);
+\(导航代码)// 修改积分/余额为指定数值
+\(父级路径).\(最终字段) = \(新值);
+$response.body = JSON.stringify(body);
+$done($response);
+"""
+    }
+
+    /// 字段类型中文文本
+    private static func 类型文本(_ 类型: 识别字段.字段类型) -> String {
+        switch 类型 {
+        case .用户ID: return "用户ID"
+        case .用户名: return "用户名"
+        case .手机号: return "手机号"
+        case .邮箱: return "邮箱"
+        case .头像: return "头像"
+        case .积分余额: return "积分余额"
+        case .登录Token: return "登录Token"
+        case .性别: return "性别"
+        case .生日: return "生日"
+        default: return "其他"
+        }
     }
 }

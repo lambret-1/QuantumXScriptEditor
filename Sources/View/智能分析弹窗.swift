@@ -229,8 +229,43 @@ private struct 分析结果视图: View {
                     .background(Color.red.opacity(0.08))
                     .cornerRadius(6)
                 }
+
+                // 用户核心信息字段
+                if !结果.用户核心字段.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label("用户核心信息（\(结果.用户核心字段.count)项）", systemImage: "person.crop.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                        ForEach(结果.用户核心字段.prefix(6)) { 字段 in
+                            HStack(spacing: 6) {
+                                Text(字段.字段路径)
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(.primary)
+                                Text("= \(字段.当前值)")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(类型文本(字段.类型))
+                                    .font(.caption2)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.blue)
+                                    .cornerRadius(3)
+                            }
+                        }
+                        if 结果.用户核心字段.count > 6 {
+                            Text("...还有\(结果.用户核心字段.count - 6)项")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding(8)
+                    .background(Color.blue.opacity(0.08))
+                    .cornerRadius(6)
+                }
             } else {
-                Text("未识别到会员或广告相关字段，请检查粘贴的数据格式是否正确")
+                Text("未识别到会员、广告或用户核心信息字段，请检查粘贴的数据格式是否正确")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.vertical, 4)
@@ -251,6 +286,15 @@ private struct 分析结果视图: View {
         case .广告链接: return "链接"
         case .广告图片: return "图片"
         case .广告数组: return "数组"
+        case .用户ID: return "ID"
+        case .用户名: return "昵称"
+        case .手机号: return "手机"
+        case .邮箱: return "邮箱"
+        case .头像: return "头像"
+        case .积分余额: return "积分"
+        case .登录Token: return "Token"
+        case .性别: return "性别"
+        case .生日: return "生日"
         }
     }
 }
@@ -330,6 +374,7 @@ private struct 模板卡片视图: View {
         switch 分类 {
         case "会员解锁": return .orange
         case "去广告": return .red
+        case "用户信息": return .blue
         default: return .gray
         }
     }
