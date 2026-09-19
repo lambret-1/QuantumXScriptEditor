@@ -2,11 +2,12 @@ import Foundation
 
 /// 圈X脚本模板库，全部模板附带中文注释
 /// 按用途分类，新手可一键插入后按需修改参数
-/// 所有响应处理类模板统一遵循四步标准流程：
-/// 第一步：获取 $response.body，不是JSON就原样放行
-/// 第二步：JSON.parse() 把文本"翻译"成脚本能修改的对象
-/// 第三步：修改对象里的字段
-/// 第四步：JSON.stringify() 把对象重新"压回"文本，调用 $done({ body: ... })
+/// 所有响应处理类模板统一遵循圈X实战标准流程：
+/// 第一步：IIFE包裹隔离变量，检查$response是否存在，响应体为空直接放行
+/// 第二步：检查Content-Type或响应体首字符，非JSON直接放行不破坏页面
+/// 第三步：try-catch包裹JSON.parse把文本"翻译"成可修改的对象
+/// 第四步：修改对象里的字段，JSON.stringify重新"压回"文本，调用$done({body:...})
+/// 第五步：catch中任何异常都$done()原样放行，保证脚本永不崩溃
 struct 圈X代码模板: Identifiable {
     let id = UUID()
     /// 模板标题
@@ -99,37 +100,48 @@ $done($request);
 // 功能：修改POST请求体内容
 // 场景：修改提交的表单参数
 // ======================
-// 【第一步】获取请求体文本
-const 原始请求体 = ($request && $request.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 脚本触发！");
 
-// 【第二步】把请求体文本"翻译"成脚本能修改的对象
-let body = {};
-try {
-    body = JSON.parse(原始请求体);
-} catch (解析错误) {
-    // 不是JSON格式，原样放行
-    console.log("[放行] 请求体不是JSON格式，原样返回");
-    $done($request);
-    return;
-}
+    // 【第一步】获取请求体文本
+    const 原始请求体 = ($request && $request.body) || "";
+    if (!原始请求体) {
+        console.log("⚠️ 请求体为空，直接放行");
+        $done($request); return;
+    }
 
-try {
-    // 【第三步】修改对象里的字段
-    // ====== 配置区：在这里修改需要的参数 ======
-    body.amount = 0.01;  // 金额改为0.01
-    body.count = 1;      // 数量改为1
-    // ============================================
+    // 【第二步】把请求体文本"翻译"成脚本能修改的对象
+    let body = {};
+    try {
+        body = JSON.parse(原始请求体);
+        console.log("✅ [2] 请求体JSON解析成功");
+    } catch (解析错误) {
+        // 不是JSON格式，原样放行
+        console.log("⚠️ [放行] 请求体不是JSON格式，原样返回");
+        $done($request); return;
+    }
 
-    // 【第四步】把改好的对象重新"压回"文本，交给圈X
-    $request.body = JSON.stringify(body);
-    $done($request);
-} catch (错误) {
-    // 【终极兜底】任何异常都原样放行
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done($request);
-}
+    try {
+        // 【第三步】修改对象里的字段
+        // ====== 配置区：在这里修改需要的参数 ======
+        body.amount = 0.01;  // 金额改为0.01
+        body.count = 1;      // 数量改为1
+        // ============================================
+        console.log("👑 [3] 请求体字段修改完毕");
+
+        // 【第四步】把改好的对象重新"压回"文本，交给圈X
+        $request.body = JSON.stringify(body);
+        console.log("🎉 [4] 脚本执行成功！");
+        $done($request);
+    } catch (错误) {
+        // 【终极兜底】任何异常都原样放行
+        console.log("❌ [异常] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)) + "，原样放行");
+        $done($request);
+    }
+})();
 """,
-            用途说明: "解析并修改POST请求的JSON参数（四步标准流程）",
+            用途说明: "解析并修改POST请求的JSON参数（圈X实战标准流程）",
             使用场景: "修改提交金额、数量等请求参数"
         ),
 
@@ -141,57 +153,60 @@ try {
 // ======================
 // 功能：修改接口返回的JSON数据
 // 场景：修改会员状态、余额等字段
-// 参考真实圈X脚本风格，含详细分级日志
+// 遵循圈X实战标准流程，含详细分级日志
 // ======================
-console.log("🚀 [1] 脚本触发！");
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 脚本触发！");
 
-// 【第一步】获取响应体，保存原始内容作为兜底
-if (typeof $response === "undefined" || $response === null) {
-    console.log("❌ [错误] $response 未定义！请在圈X的 [rewrite_local] 中使用 script-response-body");
-    $done({}); return;
-}
-const 原始响应体 = $response.body;
-if (!原始响应体) {
-    console.log("❌ [错误] 响应体为空！可能接口返回了 204/304，或者需要开启 MitM");
-    $done({}); return;
-}
-console.log("📦 [2] 成功获取响应体，长度: " + 原始响应体.length);
-console.log("🔍 [调试] 响应体前100字符: " + 原始响应体.substring(0, 100));
-
-// 【第二步】把响应体文本"翻译"成脚本能修改的对象
-let body = {};
-try {
-    body = JSON.parse(原始响应体);
-    console.log("✅ [3] JSON 解析成功");
-} catch (解析错误) {
-    console.log("❌ [异常] JSON解析失败: " + (解析错误 && 解析错误.message ? 解析错误.message : String(解析错误)));
-    $done({ body: 原始响应体 });
-    return;
-}
-
-try {
-    // 【第三步】修改对象里的字段（空值保护：检查data字段存在且为对象）
-    if (body.data && typeof body.data === "object") {
-        // ====== 配置区：在这里修改需要的字段 ======
-        body.data.isVip = 1;                                       // 会员状态设为1（圈X脚本中VIP状态通常用数字1表示）
-        body.data.vipExpire = String(body.data.vipExpire || "2099-12-31"); // 会员到期时间
-        // ============================================
-        console.log("👑 [4] 字段修改完毕");
-    } else {
-        console.log("⚠️ [降级] body.data不存在或非对象，跳过修改");
-        console.log("💡 body 下目前的键有: " + Object.keys(body).join(", "));
+    // 1. 检查响应对象是否存在
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义！请在圈X的 [rewrite_local] 里使用 script-response-body");
+        $done(); return;
     }
 
-    console.log("🎉 [5] 脚本执行成功！");
-    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
-    $done({ body: JSON.stringify(body) });
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("❌ [异常] 脚本执行异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+    var body = $response.body;
+    if (!body) {
+        console.log("⚠️ [错误] 响应体为空！可能接口返回了 204/304，或者需要开启 MitM");
+        $done(); return;
+    }
+    console.log("📦 [2] 成功获取 Body，长度: " + body.length);
+
+    // 2. 快速判断是不是JSON（非JSON直接放行，不破坏页面）
+    var contentType = $response.headers["Content-Type"] || "";
+    var isJson = contentType.indexOf("json") !== -1 ||
+                 (body.charAt(0) === "{" || body.charAt(0) === "[");
+    if (!isJson) {
+        console.log("⚠️ 非 JSON 响应（网页/图片等），直接放行");
+        $done(); return;
+    }
+
+    try {
+        var obj = JSON.parse(body);
+        console.log("✅ [3] JSON 解析成功");
+
+        // ================= 3. 修改字段 =================
+        // 【空值保护】只检查一次，确保父级路径存在且为对象
+        if (!obj.data || typeof obj.data !== "object" || Array.isArray(obj.data)) obj.data = {};
+
+        // ====== 配置区：在这里修改需要的字段 ======
+        obj.data.isVip = 1;                                                    // 会员状态设为1（圈X脚本中VIP状态用数字1表示）
+        obj.data.vipExpire = String(obj.data.vipExpire || "2099-12-31");     // 会员到期时间
+        obj.data.vipLevel = 1;                                                  // 会员等级
+        // ============================================
+        console.log("👑 [4] 字段修改完毕");
+
+        console.log("🎉 [5] 脚本执行成功！");
+        // 4. 把改好的对象重新"压回"文本字符串，调用$done返回
+        $done({ body: JSON.stringify(obj) });
+    } catch (e) {
+        console.log("❌ [异常] 解析失败：" + e + "，原样放行");
+        // 解析失败直接放行，不修改原始响应
+        $done();
+    }
+})();
 """,
-            用途说明: "解析响应JSON并修改指定字段（四步标准流程+分级日志）",
+            用途说明: "解析响应JSON并修改指定字段（圈X实战标准流程+分级日志）",
             使用场景: "修改接口返回的会员状态、用户信息等"
         ),
         圈X代码模板(
@@ -203,29 +218,45 @@ try {
 // 场景：替换页面中的特定文字
 // 说明：此模板处理纯文本，不需要JSON.parse
 // ======================
-// 【第一步】获取响应体文本
-const 原始响应体 = ($response && $response.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 脚本触发！");
 
-try {
-    // 【第二步】确保是字符串类型
-    let body = String(原始响应体);
-
-    // 【第三步】替换文本（响应体非空才执行）
-    if (body.length > 0) {
-        // ====== 配置区：在这里修改替换规则 ======
-        body = body.replace(/旧文本/g, "新文本");
-        // ============================================
-    } else {
-        console.log("[降级] 响应体为空，跳过替换");
+    // 1. 检查响应对象
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义");
+        $done(); return;
     }
 
-    // 【第四步】返回处理后的文本
-    $done({ body: body });
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+    var body = $response.body;
+    if (!body) {
+        console.log("⚠️ 响应体为空，直接放行");
+        $done(); return;
+    }
+    console.log("📦 [2] Body 长度: " + body.length);
+
+    try {
+        // 2. 确保是字符串类型
+        var text = String(body);
+
+        // 3. 替换文本（响应体非空才执行）
+        if (text.length > 0) {
+            // ====== 配置区：在这里修改替换规则 ======
+            text = text.replace(/旧文本/g, "新文本");
+            // ============================================
+            console.log("👑 [3] 文本替换完毕");
+        } else {
+            console.log("⚠️ [降级] 响应体为空，跳过替换");
+        }
+
+        console.log("🎉 [4] 脚本执行成功！");
+        // 4. 返回处理后的文本
+        $done({ body: text });
+    } catch (e) {
+        console.log("❌ [异常] 脚本异常：" + e + "，原样放行");
+        $done();
+    }
+})();
 """,
             用途说明: "对响应体做文本全局替换（纯文本处理，无需JSON.parse）",
             使用场景: "修改网页文案、替换广告内容等"
@@ -251,61 +282,77 @@ $done({ body: "{}", statusCode: 200 });
 // ======================
 // 功能：删除响应JSON中的广告字段
 // 场景：接口返回数据中混入广告位，需要剔除
+// 遵循圈X实战标准流程
 // ======================
-// 【第一步】获取响应体，保存原始内容作为兜底
-const 原始响应体 = ($response && $response.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 脚本触发！");
 
-// 【第二步】把响应体文本"翻译"成脚本能修改的对象
-let body = {};
-try {
-    body = JSON.parse(原始响应体);
-} catch (解析错误) {
-    // 不是JSON格式，原样放行
-    console.log("[放行] 响应不是JSON格式，原样返回");
-    $done({ body: 原始响应体 });
-    return;
-}
-
-try {
-    // 【第三步】删除对象里的广告字段
-    // ====== 配置区：在这里填写要删除的广告字段路径 ======
-    const 要删除的字段 = [
-        "data.ad",           // 示例：删除 data 下的 ad 字段
-        "data.banner",       // 示例：删除 data 下的 banner 字段
-        "data.popup_ad"      // 示例：删除 data 下的 popup_ad 弹窗广告
-    ];
-    // ==================================================
-
-    // 递归删除指定路径的字段（带空值保护）
-    function 删除字段(obj, 路径) {
-        if (!obj || typeof obj !== "object") return;
-        const 部分 = String(路径).split(".");
-        let 当前 = obj;
-        for (let i = 0; i < 部分.length - 1; i++) {
-            if (当前[部分[i]] === undefined || 当前[部分[i]] === null || typeof 当前[部分[i]] !== "object") return;
-            当前 = 当前[部分[i]];
-        }
-        delete 当前[部分[部分.length - 1]];
+    // 1. 检查响应对象
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义");
+        $done(); return;
     }
 
-    // 遍历删除所有配置的广告字段（单个失败不影响其他）
-    要删除的字段.forEach(function(路径) {
-        try {
-            删除字段(body, 路径);
-        } catch (字段错误) {
-            console.log("[降级] 删除字段失败(" + 路径 + "): " + (字段错误 && 字段错误.message ? 字段错误.message : String(字段错误)));
-        }
-    });
+    var body = $response.body;
+    if (!body) {
+        console.log("⚠️ 响应体为空，直接放行");
+        $done(); return;
+    }
+    console.log("📦 [2] Body 长度: " + body.length);
 
-    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
-    $done({ body: JSON.stringify(body) });
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+    // 2. 判断是不是JSON
+    var contentType = $response.headers["Content-Type"] || "";
+    var isJson = contentType.indexOf("json") !== -1 ||
+                 (body.charAt(0) === "{" || body.charAt(0) === "[");
+    if (!isJson) {
+        console.log("⚠️ 非 JSON 响应，直接放行");
+        $done(); return;
+    }
+
+    try {
+        var obj = JSON.parse(body);
+        console.log("✅ [3] JSON 解析成功");
+
+        // ================= 3. 删除广告字段 =================
+        // ====== 配置区：要删除的广告字段路径 ======
+        var 要删除的字段 = [
+            "data.ad",           // 删除 data 下的 ad 字段
+            "data.banner",       // 删除 data 下的 banner 字段
+            "data.popup_ad"      // 删除 data 下的 popup_ad 弹窗广告
+        ];
+        // ==========================================
+
+        // 递归删除指定路径的字段（带空值保护）
+        function 删除字段(对象, 路径) {
+            if (!对象 || typeof 对象 !== "object") return;
+            var 部分 = String(路径).split(".");
+            var 当前 = 对象;
+            for (var i = 0; i < 部分.length - 1; i++) {
+                if (当前[部分[i]] === undefined || 当前[部分[i]] === null || typeof 当前[部分[i]] !== "object") return;
+                当前 = 当前[部分[i]];
+            }
+            delete 当前[部分[部分.length - 1]];
+        }
+
+        // 遍历删除所有配置的广告字段（单个失败不影响其他）
+        要删除的字段.forEach(function(路径) {
+            try { 删除字段(obj, 路径); } catch (字段错误) {
+                console.log("⚠️ [降级] 删除字段失败(" + 路径 + "): " + 字段错误);
+            }
+        });
+        console.log("🧹 [4] 广告字段删除完毕");
+
+        console.log("🎉 [5] 脚本执行成功！");
+        // 4. 返回修改后的响应
+        $done({ body: JSON.stringify(obj) });
+    } catch (e) {
+        console.log("❌ [异常] 解析失败：" + e + "，原样放行");
+        $done();
+    }
+})();
 """,
-            用途说明: "从JSON响应中删除指定路径的广告字段（四步标准流程）",
+            用途说明: "从JSON响应中删除指定路径的广告字段（圈X实战标准流程）",
             使用场景: "接口返回的JSON中包含ad、banner等广告字段，需要剔除后再展示"
         ),
         圈X代码模板(
@@ -315,76 +362,91 @@ try {
 // ======================
 // 功能：从响应JSON的数组中过滤掉广告项
 // 场景：信息流、推荐列表中混入广告卡片，需要剔除
+// 遵循圈X实战标准流程
 // ======================
-// 【第一步】获取响应体，保存原始内容作为兜底
-const 原始响应体 = ($response && $response.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 脚本触发！");
 
-// 【第二步】把响应体文本"翻译"成脚本能修改的对象
-let body = {};
-try {
-    body = JSON.parse(原始响应体);
-} catch (解析错误) {
-    // 不是JSON格式，原样放行
-    console.log("[放行] 响应不是JSON格式，原样返回");
-    $done({ body: 原始响应体 });
-    return;
-}
-
-try {
-    // 【第三步】过滤数组里的广告项
-    // ====== 配置区 ======
-    const 数组路径 = "data.list";
-    // ====================
-
-    // 判断一项是否为广告（带类型保护）
-    function 是否为广告(项) {
-        if (!项 || typeof 项 !== "object") return false;
-        return 项.type === "ad"
-            || 项.type === "advert"
-            || 项.has_ad === true
-            || 项.is_ad === true
-            || (项.ad_id !== undefined && 项.ad_id !== null);
+    // 1. 检查响应对象
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义");
+        $done(); return;
     }
 
-    // 安全导航到数组（空值保护）
-    const 部分 = String(数组路径).split(".");
-    let 父级 = body;
-    let 路径有效 = true;
-    for (let i = 0; i < 部分.length - 1; i++) {
-        if (父级[部分[i]] === undefined || 父级[部分[i]] === null || typeof 父级[部分[i]] !== "object") {
-            console.log("[降级] 数组路径不存在: " + 数组路径);
-            路径有效 = false;
-            break;
+    var body = $response.body;
+    if (!body) {
+        console.log("⚠️ 响应体为空，直接放行");
+        $done(); return;
+    }
+    console.log("📦 [2] Body 长度: " + body.length);
+
+    // 2. 判断是不是JSON
+    var contentType = $response.headers["Content-Type"] || "";
+    var isJson = contentType.indexOf("json") !== -1 ||
+                 (body.charAt(0) === "{" || body.charAt(0) === "[");
+    if (!isJson) {
+        console.log("⚠️ 非 JSON 响应，直接放行");
+        $done(); return;
+    }
+
+    try {
+        var obj = JSON.parse(body);
+        console.log("✅ [3] JSON 解析成功");
+
+        // ================= 3. 过滤数组广告项 =================
+        // ====== 配置区 ======
+        var 数组路径 = "data.list";  // 数组所在的路径
+        // ====================
+
+        // 判断一项是否为广告（带类型保护）
+        function 是否为广告(项) {
+            if (!项 || typeof 项 !== "object") return false;
+            return 项.type === "ad"
+                || 项.type === "advert"
+                || 项.has_ad === true
+                || 项.is_ad === true
+                || (项.ad_id !== undefined && 项.ad_id !== null);
         }
-        父级 = 父级[部分[i]];
-    }
 
-    // 过滤掉广告项（数组类型校验）
-    if (路径有效) {
-        const 数组 = 父级[部分[部分.length - 1]];
-        if (Array.isArray(数组)) {
-            const 过滤后 = 数组.filter(function(项) {
-                try {
-                    return !是否为广告(项);
-                } catch (项错误) {
-                    return true; // 单项判断异常时保留该项
-                }
-            });
-            父级[部分[部分.length - 1]] = 过滤后;
-        } else {
-            console.log("[降级] 目标字段不是数组，跳过过滤");
+        // 安全导航到数组（空值保护）
+        var 部分 = String(数组路径).split(".");
+        var 父级 = obj;
+        var 路径有效 = true;
+        for (var i = 0; i < 部分.length - 1; i++) {
+            if (父级[部分[i]] === undefined || 父级[部分[i]] === null || typeof 父级[部分[i]] !== "object") {
+                console.log("⚠️ [降级] 数组路径不存在: " + 数组路径);
+                路径有效 = false;
+                break;
+            }
+            父级 = 父级[部分[i]];
         }
-    }
 
-    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
-    $done({ body: JSON.stringify(body) });
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+        // 过滤掉广告项（数组类型校验）
+        if (路径有效) {
+            var 数组 = 父级[部分[部分.length - 1]];
+            if (Array.isArray(数组)) {
+                var 过滤前数量 = 数组.length;
+                var 过滤后 = 数组.filter(function(项) {
+                    try { return !是否为广告(项); } catch (项错误) { return true; }
+                });
+                父级[部分[部分.length - 1]] = 过滤后;
+                console.log("🧹 [4] 广告过滤完毕：过滤前" + 过滤前数量 + "项，过滤后" + 过滤后.length + "项");
+            } else {
+                console.log("⚠️ [降级] 目标字段不是数组，跳过过滤");
+            }
+        }
+
+        console.log("🎉 [5] 脚本执行成功！");
+        // 4. 返回修改后的响应
+        $done({ body: JSON.stringify(obj) });
+    } catch (e) {
+        console.log("❌ [异常] 解析失败：" + e + "，原样放行");
+        $done();
+    }
+})();
 """,
-            用途说明: "从JSON响应的数组列表中过滤掉广告项（四步标准流程）",
+            用途说明: "从JSON响应的数组列表中过滤掉广告项（圈X实战标准流程）",
             使用场景: "信息流、文章列表、视频推荐等接口中混入广告卡片，需要剔除广告项"
         ),
         圈X代码模板(
@@ -394,68 +456,86 @@ try {
 // ======================
 // 功能：批量删除数组中每一项的广告相关字段
 // 场景：列表中每一项都带有广告标记字段，需要统一清除
+// 遵循圈X实战标准流程
 // ======================
-// 【第一步】获取响应体，保存原始内容作为兜底
-const 原始响应体 = ($response && $response.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 脚本触发！");
 
-// 【第二步】把响应体文本"翻译"成脚本能修改的对象
-let body = {};
-try {
-    body = JSON.parse(原始响应体);
-} catch (解析错误) {
-    // 不是JSON格式，原样放行
-    console.log("[放行] 响应不是JSON格式，原样返回");
-    $done({ body: 原始响应体 });
-    return;
-}
-
-try {
-    // 【第三步】批量删除数组每一项的广告字段
-    // ====== 配置区 ======
-    const 数组路径 = "data.list";
-    const 要删除的字段名 = [
-        "ad_url", "ad_image", "ad_title", "ad_track", "is_ad", "ad_id"
-    ];
-    // ====================
-
-    // 安全导航到数组
-    const 部分 = String(数组路径).split(".");
-    let 父级 = body;
-    let 路径有效 = true;
-    for (let i = 0; i < 部分.length - 1; i++) {
-        if (父级[部分[i]] === undefined || 父级[部分[i]] === null || typeof 父级[部分[i]] !== "object") {
-            console.log("[降级] 数组路径不存在: " + 数组路径);
-            路径有效 = false;
-            break;
-        }
-        父级 = 父级[部分[i]];
+    // 1. 检查响应对象
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义");
+        $done(); return;
     }
 
-    // 遍历数组批量删除字段（单项异常不影响其他）
-    if (路径有效) {
-        const 数组 = 父级[部分[部分.length - 1]];
-        if (Array.isArray(数组)) {
-            数组.forEach(function(项) {
-                if (项 && typeof 项 === "object") {
-                    要删除的字段名.forEach(function(字段名) {
-                        try { delete 项[字段名]; } catch (e) {}
-                    });
-                }
-            });
-        } else {
-            console.log("[降级] 目标字段不是数组，跳过批量删除");
-        }
+    var body = $response.body;
+    if (!body) {
+        console.log("⚠️ 响应体为空，直接放行");
+        $done(); return;
+    }
+    console.log("📦 [2] Body 长度: " + body.length);
+
+    // 2. 判断是不是JSON
+    var contentType = $response.headers["Content-Type"] || "";
+    var isJson = contentType.indexOf("json") !== -1 ||
+                 (body.charAt(0) === "{" || body.charAt(0) === "[");
+    if (!isJson) {
+        console.log("⚠️ 非 JSON 响应，直接放行");
+        $done(); return;
     }
 
-    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
-    $done({ body: JSON.stringify(body) });
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+    try {
+        var obj = JSON.parse(body);
+        console.log("✅ [3] JSON 解析成功");
+
+        // ================= 3. 批量删除数组广告字段 =================
+        // ====== 配置区 ======
+        var 数组路径 = "data.list";
+        var 要删除的字段名 = [
+            "ad_url", "ad_image", "ad_title", "ad_track", "is_ad", "ad_id"
+        ];
+        // ====================
+
+        // 安全导航到数组
+        var 部分 = String(数组路径).split(".");
+        var 父级 = obj;
+        var 路径有效 = true;
+        for (var i = 0; i < 部分.length - 1; i++) {
+            if (父级[部分[i]] === undefined || 父级[部分[i]] === null || typeof 父级[部分[i]] !== "object") {
+                console.log("⚠️ [降级] 数组路径不存在: " + 数组路径);
+                路径有效 = false;
+                break;
+            }
+            父级 = 父级[部分[i]];
+        }
+
+        // 遍历数组批量删除字段（单项异常不影响其他）
+        if (路径有效) {
+            var 数组 = 父级[部分[部分.length - 1]];
+            if (Array.isArray(数组)) {
+                数组.forEach(function(项) {
+                    if (项 && typeof 项 === "object") {
+                        要删除的字段名.forEach(function(字段名) {
+                            try { delete 项[字段名]; } catch (e) {}
+                        });
+                    }
+                });
+                console.log("🧹 [4] 批量删除广告字段完毕，共处理" + 数组.length + "项");
+            } else {
+                console.log("⚠️ [降级] 目标字段不是数组，跳过批量删除");
+            }
+        }
+
+        console.log("🎉 [5] 脚本执行成功！");
+        // 4. 返回修改后的响应
+        $done({ body: JSON.stringify(obj) });
+    } catch (e) {
+        console.log("❌ [异常] 解析失败：" + e + "，原样放行");
+        $done();
+    }
+})();
 """,
-            用途说明: "批量删除数组中每一项的多个广告相关字段（四步标准流程）",
+            用途说明: "批量删除数组中每一项的多个广告相关字段（圈X实战标准流程）",
             使用场景: "列表接口中每一项都带有ad_url、ad_image等广告字段，需要统一清除"
         ),
         圈X代码模板(
@@ -467,47 +547,62 @@ try {
 // 场景：网页中包含广告div/iframe，需要在加载前剔除
 // 说明：此模板处理HTML纯文本，不需要JSON.parse
 // ======================
-// 【第一步】获取响应体文本
-const 原始响应体 = ($response && $response.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 脚本触发！");
 
-try {
-    // 【第二步】确保是字符串类型
-    let html = String(原始响应体);
-
-    // 空响应直接返回
-    if (html.length === 0) {
-        console.log("[降级] 响应体为空，跳过HTML处理");
-        $done({ body: 原始响应体 });
-        return;
+    // 1. 检查响应对象
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义");
+        $done(); return;
     }
 
-    // 【第三步】正则移除广告节点
-    // ====== 配置区：要移除的广告选择器 ======
-    const 广告匹配规则 = [
-        /<div[^>]*class="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/div>/gi,
-        /<div[^>]*id="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/div>/gi,
-        /<iframe[^>]*class="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/iframe>/gi,
-        /<ins[^>]*class="[^"]*adsbygoogle[^"]*"[^>]*>[\\s\\S]*?<\\/ins>/gi,
-        /<script[^>]*src="[^"]*ads[^"]*"[^>]*>[\\s\\S]*?<\\/script>/gi
-    ];
-    // ==========================================
+    var body = $response.body;
+    if (!body) {
+        console.log("⚠️ 响应体为空，直接放行");
+        $done(); return;
+    }
+    console.log("📦 [2] Body 长度: " + body.length);
 
-    // 逐条移除广告节点（单条正则异常不影响其他）
-    广告匹配规则.forEach(function(正则) {
-        try {
-            html = html.replace(正则, "<!-- 广告已移除 -->");
-        } catch (正则错误) {
-            console.log("[降级] 正则替换异常: " + (正则错误 && 正则错误.message ? 正则错误.message : String(正则错误)));
+    try {
+        // 2. 确保是字符串类型
+        var html = String(body);
+
+        // 空响应直接返回
+        if (html.length === 0) {
+            console.log("⚠️ [降级] 响应体为空，跳过HTML处理");
+            $done(); return;
         }
-    });
 
-    // 【第四步】返回处理后的HTML文本
-    $done({ body: html });
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+        // 3. 正则移除广告节点
+        // ====== 配置区：要移除的广告选择器 ======
+        var 广告匹配规则 = [
+            /<div[^>]*class="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/div>/gi,
+            /<div[^>]*id="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/div>/gi,
+            /<iframe[^>]*class="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/iframe>/gi,
+            /<ins[^>]*class="[^"]*adsbygoogle[^"]*"[^>]*>[\\s\\S]*?<\\/ins>/gi,
+            /<script[^>]*src="[^"]*ads[^"]*"[^>]*>[\\s\\S]*?<\\/script>/gi
+        ];
+        // ==========================================
+
+        // 逐条移除广告节点（单条正则异常不影响其他）
+        广告匹配规则.forEach(function(正则) {
+            try {
+                html = html.replace(正则, "<!-- 广告已移除 -->");
+            } catch (正则错误) {
+                console.log("⚠️ [降级] 正则替换异常: " + 正则错误);
+            }
+        });
+        console.log("🧹 [3] HTML广告节点移除完毕");
+
+        console.log("🎉 [4] 脚本执行成功！");
+        // 4. 返回处理后的HTML文本
+        $done({ body: html });
+    } catch (e) {
+        console.log("❌ [异常] 脚本异常：" + e + "，原样放行");
+        $done();
+    }
+})();
 """,
             用途说明: "从HTML响应中正则匹配并移除广告DOM节点（纯文本处理）",
             使用场景: "网页中包含广告位div、Google AdSense、广告iframe等需要剔除"
@@ -521,42 +616,60 @@ try {
 // 场景：无法精确匹配广告字段时，用关键词粗筛屏蔽
 // 说明：此模板处理纯文本，不需要JSON.parse
 // ======================
-// 【第一步】获取响应体文本
-const 原始响应体 = ($response && $response.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 脚本触发！");
 
-try {
-    // 【第二步】确保是字符串类型
-    const 响应文本 = String(原始响应体);
+    // 1. 检查响应对象
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义");
+        $done(); return;
+    }
 
-    // 【第三步】检测广告关键词
-    // ====== 配置区：广告关键词列表 ======
-    const 广告关键词 = ["广告位", "ad_slot", "advertisement", "推广", "sponsored"];
-    // ====================================
+    var body = $response.body;
+    if (!body) {
+        console.log("⚠️ 响应体为空，直接放行");
+        $done(); return;
+    }
+    console.log("📦 [2] Body 长度: " + body.length);
 
-    // 检测是否包含任一广告关键词（单个关键词异常不影响其他）
-    let 包含广告 = false;
     try {
-        包含广告 = 广告关键词.some(function(关键词) {
-            return 响应文本.indexOf(关键词) !== -1;
-        });
-    } catch (检测错误) {
-        console.log("[降级] 关键词检测异常: " + (检测错误 && 检测错误.message ? 检测错误.message : String(检测错误)));
-    }
+        // 2. 确保是字符串类型
+        var 响应文本 = String(body);
 
-    // 根据检测结果决定响应体
-    let 最终响应体 = 响应文本;
-    if (包含广告) {
-        最终响应体 = "{}";
-        try { $notify("广告拦截", "", "已屏蔽含广告关键词的响应"); } catch (e) {}
-    }
+        // 3. 检测广告关键词
+        // ====== 配置区：广告关键词列表 ======
+        var 广告关键词 = ["广告位", "ad_slot", "advertisement", "推广", "sponsored"];
+        // ====================================
 
-    // 【第四步】返回最终响应体
-    $done({ body: 最终响应体 });
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+        // 检测是否包含任一广告关键词
+        var 包含广告 = false;
+        try {
+            包含广告 = 广告关键词.some(function(关键词) {
+                return 响应文本.indexOf(关键词) !== -1;
+            });
+        } catch (检测错误) {
+            console.log("⚠️ [降级] 关键词检测异常: " + 检测错误);
+        }
+
+        // 根据检测结果决定响应体
+        var 最终响应体 = 响应文本;
+        if (包含广告) {
+            最终响应体 = "{}";
+            console.log("🧹 [3] 检测到广告关键词，返回空响应");
+            try { $notify("广告拦截", "", "已屏蔽含广告关键词的响应"); } catch (e) {}
+        } else {
+            console.log("✅ [3] 未检测到广告关键词，原样放行");
+        }
+
+        console.log("🎉 [4] 脚本执行成功！");
+        // 4. 返回最终响应体
+        $done({ body: 最终响应体 });
+    } catch (e) {
+        console.log("❌ [异常] 脚本异常：" + e + "，原样放行");
+        $done();
+    }
+})();
 """,
             用途说明: "检测响应中是否包含广告关键词，包含则返回空响应阻断（纯文本处理）",
             使用场景: "无法精确匹配广告字段时，用关键词粗筛屏蔽疑似广告响应"
@@ -577,20 +690,19 @@ $task.fetch({
     url: "https://httpbin.org/get",
     method: "GET"
 }).then(function(response) {
-    // 【第二步】把响应体文本"翻译"成对象
+    // 把响应体文本"翻译"成对象
     let data = {};
     try {
         data = JSON.parse(response.body);
     } catch (解析错误) {
-        console.log("[容错] 响应JSON解析失败: " + (解析错误 && 解析错误.message ? 解析错误.message : String(解析错误)));
-        $done();
-        return;
+        console.log("[容错] 响应JSON解析失败: " + 解析错误);
+        $done(); return;
     }
-    // 【第三步】处理数据
+    // 处理数据
     try {
         $notify("请求成功", "", "来源IP：" + String(data.origin || "未知"));
     } catch (通知错误) {
-        console.log("[降级] 通知发送失败: " + (通知错误 && 通知错误.message ? 通知错误.message : String(通知错误)));
+        console.log("[降级] 通知发送失败: " + 通知错误);
     }
     $done();
 }, function(reason) {
@@ -612,7 +724,7 @@ $task.fetch({
 // 圈X原生API：$task.fetch（Promise风格）
 // 注意：不是$httpClient（那是Surge的API）
 // ======================
-// 【第一步】把要提交的对象"压成"文本
+// 把要提交的对象"压成"文本
 const postData = JSON.stringify({key: "value"});
 
 $task.fetch({
@@ -629,7 +741,7 @@ $task.fetch({
     try {
         $notify("提交成功", "", 响应摘要);
     } catch (通知错误) {
-        console.log("[降级] 通知发送失败: " + (通知错误 && 通知错误.message ? 通知错误.message : String(通知错误)));
+        console.log("[降级] 通知发送失败: " + 通知错误);
     }
     $done();
 }, function(reason) {
@@ -664,7 +776,7 @@ $prefs.setValueForKey(String(count), "运行次数");
 try {
     $notify("运行统计", "", "本脚本已运行" + count + "次");
 } catch (通知错误) {
-    console.log("[降级] 通知发送失败: " + (通知错误 && 通知错误.message ? 通知错误.message : String(通知错误)));
+    console.log("[降级] 通知发送失败: " + 通知错误);
 }
 $done();
 """,
@@ -678,45 +790,89 @@ $done();
 // ======================
 // 功能：根据条件判断是否弹出通知
 // 场景：监控特定字段变化时提醒
+// 遵循圈X实战标准流程
 // ======================
-// 【第一步】获取响应体，保存原始内容作为兜底
-const 原始响应体 = ($response && $response.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 脚本触发！");
 
-// 【第二步】把响应体文本"翻译"成脚本能读取的对象
-let body = {};
-try {
-    body = JSON.parse(原始响应体);
-} catch (解析错误) {
-    // 不是JSON格式，原样放行
-    console.log("[放行] 响应不是JSON格式，原样返回");
-    $done({ body: 原始响应体 });
-    return;
-}
-
-try {
-    // 【第三步】判断条件并决定是否通知
-    const 错误码 = Number(body.code || 0);
-    if (错误码 === 0) {
-        // 成功时不通知，原样返回响应
-        $done({ body: 原始响应体 });
-    } else {
-        // 失败时弹窗提醒
-        const 错误信息 = String(body.msg || "未知错误");
-        try {
-            $notify("接口返回错误", "错误码", 错误码 + " - " + 错误信息);
-        } catch (通知错误) {
-            console.log("[降级] 通知发送失败: " + (通知错误 && 通知错误.message ? 通知错误.message : String(通知错误)));
-        }
-        $done({ body: 原始响应体 });
+    // 1. 检查响应对象
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义");
+        $done(); return;
     }
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+
+    var body = $response.body;
+    if (!body) {
+        console.log("⚠️ 响应体为空，直接放行");
+        $done(); return;
+    }
+    console.log("📦 [2] Body 长度: " + body.length);
+
+    // 2. 判断是不是JSON
+    var contentType = $response.headers["Content-Type"] || "";
+    var isJson = contentType.indexOf("json") !== -1 ||
+                 (body.charAt(0) === "{" || body.charAt(0) === "[");
+    if (!isJson) {
+        console.log("⚠️ 非 JSON 响应，直接放行");
+        $done(); return;
+    }
+
+    try {
+        var obj = JSON.parse(body);
+        console.log("✅ [3] JSON 解析成功");
+
+        // 3. 判断条件并决定是否通知
+        var 错误码 = Number(obj.code || 0);
+        if (错误码 === 0) {
+            // 成功时不通知，原样返回响应
+            console.log("✅ [4] 接口正常，不通知");
+            $done({ body: body });
+        } else {
+            // 失败时弹窗提醒
+            var 错误信息 = String(obj.msg || "未知错误");
+            console.log("⚠️ [4] 接口异常，错误码：" + 错误码 + "，错误信息：" + 错误信息);
+            try {
+                $notify("接口返回错误", "错误码：" + 错误码, 错误信息);
+            } catch (通知错误) {
+                console.log("⚠️ [降级] 通知发送失败: " + 通知错误);
+            }
+            $done({ body: body });
+        }
+    } catch (e) {
+        console.log("❌ [异常] 解析失败：" + e + "，原样放行");
+        $done();
+    }
+})();
 """,
-            用途说明: "根据响应条件决定是否弹出通知（四步标准流程）",
+            用途说明: "根据响应条件决定是否弹出通知（圈X实战标准流程）",
             使用场景: "监控接口异常、特定状态变化时提醒用户"
+        ),
+        圈X代码模板(
+            标题: "通知弹窗带链接",
+            分类: .存储通知,
+            代码: """
+// ======================
+// 功能：使用$notify弹出带跳转链接的通知
+// 场景：通知用户点击后跳转到指定网页
+// 圈X原生API：$notify(title, subtitle, message, {"open-url": "https://..."})
+// ======================
+// 第四个参数为选项对象，open-url指定点击通知后跳转的链接
+$notify(
+    "更新提醒",
+    "发现新版本 v2.0.0",
+    "点击查看更新详情",
+    {"open-url": "https://github.com/lambret-1/QuantumXScriptEditor/releases"}
+);
+
+// 不带链接的普通通知
+$notify("普通通知", "副标题", "消息内容");
+
+console.log("[通知] 已发送通知弹窗");
+$done();
+""",
+            用途说明: "使用圈X原生$notify弹出带open-url跳转链接的通知",
+            使用场景: "需要用户点击通知后跳转到指定页面时使用"
         ),
 
         // MARK: 工具函数类
@@ -737,11 +893,11 @@ function getQueryParam(url, name) {
         try {
             return decodeURIComponent(match[1]);
         } catch (解码错误) {
-            console.log("[降级] URL参数解码失败: " + (解码错误 && 解码错误.message ? 解码错误.message : String(解码错误)));
+            console.log("[降级] URL参数解码失败: " + 解码错误);
             return match[1]; // 降级返回原始未解码值
         }
     } catch (错误) {
-        console.log("[兜底] URL参数解析异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
+        console.log("[兜底] URL参数解析异常: " + 错误);
         return null;
     }
 }
@@ -836,32 +992,6 @@ $done();
 """,
             用途说明: "检测运行环境并提供跨平台通知/请求封装，编写兼容圈X和Surge的脚本",
             使用场景: "脚本需要在多个代理工具中运行时使用"
-        ),
-        圈X代码模板(
-            标题: "通知弹窗带链接",
-            分类: .存储通知,
-            代码: """
-// ======================
-// 功能：使用$notify弹出带跳转链接的通知
-// 场景：通知用户点击后跳转到指定网页
-// 圈X原生API：$notify(title, subtitle, message, {"open-url": "https://..."})
-// ======================
-// 第四个参数为选项对象，open-url指定点击通知后跳转的链接
-$notify(
-    "更新提醒",
-    "发现新版本 v2.0.0",
-    "点击查看更新详情",
-    {"open-url": "https://github.com/lambret-1/QuantumXScriptEditor/releases"}
-);
-
-// 不带链接的普通通知
-$notify("普通通知", "副标题", "消息内容");
-
-console.log("[通知] 已发送通知弹窗");
-$done();
-""",
-            用途说明: "使用圈X原生$notify弹出带open-url跳转链接的通知",
-            使用场景: "需要用户点击通知后跳转到指定页面时使用"
         )
     ]
 
