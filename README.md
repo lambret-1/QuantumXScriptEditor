@@ -69,6 +69,16 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.1.2
+- 智能分析功能全面升级：字段路径智能识别与模板生成
+  - 提取公共`生成安全导航`方法，自动处理任意嵌套层级（data.user.isVip / data.info.VIP / root.isVip），不再一成不变写死在data里
+  - 导航代码新增`typeof !== "object"`和`Array.isArray`检查，父级为数组/字符串/数字时自动替换为空对象，确保赋值一定生效
+  - 所有5个字段修改模板（会员状态/会员到期/会员等级/修改昵称/修改积分）统一使用智能导航，根级字段自动跳过导航
+  - 隐私保护模板导航代码新增`typeof === "object"`类型检查
+  - 分析结果路径展示改用`›`分隔符（data › user › isVip），层级更直观
+  - 全部模板catch块错误输出改为安全写法`错误 && 错误.message ? 错误.message : String(错误)`，避免Error对象拼接输出[object Object]
+- 涉及文件：智能分析服务.swift、智能分析弹窗.swift
+
 ### v1.1.1
 - 全面检查并修复代码模板中的错误：
   - 【严重】「运行环境检测」模板：`isJSBox`变量未定义直接使用，导致`ReferenceError: isJSBox is not defined`，已补充定义`const isJSBox = typeof $app != "undefined" && typeof $http != "undefined"`

@@ -398,7 +398,7 @@ try {
     // 例如：if (body.data) { body.data.isVip = true; }
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """,
@@ -576,22 +576,39 @@ try {
         }
     }
 
+    // MARK: - 智能路径导航工具
+
+    /// 解析字段路径，生成安全导航代码（自动处理任意嵌套层级，如 data.user.isVip / data.info.VIP / root.isVip）
+    /// - Parameter 字段路径: 点号分隔的完整路径，如 "data.user.isVip"
+    /// - Returns: 导航代码、父级路径表达式、最终字段名
+    private static func 生成安全导航(字段路径: String) -> (导航代码: String, 父级路径: String, 最终字段: String) {
+        let 路径部分 = 字段路径.components(separatedBy: ".")
+        guard 路径部分.count > 1 else {
+            // 根级字段（如 body.isVip），无需导航
+            return ("", "body", 路径部分.first ?? 字段路径)
+        }
+        var 导航代码 = ""
+        var 父级路径 = "body"
+        // 逐级导航：检查undefined/null/非对象/数组，确保父级一定是普通对象
+        for i in 0..<(路径部分.count - 1) {
+            let 字段名 = 路径部分[i]
+            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null || typeof \(父级路径).\(字段名) !== \"object\" || Array.isArray(\(父级路径).\(字段名))) { \(父级路径).\(字段名) = {}; }\n"
+            父级路径 += ".\(字段名)"
+        }
+        let 最终字段 = 路径部分.last ?? 字段路径
+        return (导航代码, 父级路径, 最终字段)
+    }
+
+    /// 将点号路径转换为可读的层级展示（data.user.isVip → data › user › isVip）
+    static func 路径展示文本(_ 路径: String) -> String {
+        路径.components(separatedBy: ".").joined(separator: " › ")
+    }
+
     // MARK: - 模板生成方法
 
     /// 生成会员状态修改模板
     private static func 生成会员状态模板(字段路径: String, 当前值: String) -> String {
-        let 路径部分 = 字段路径.components(separatedBy: ".")
-        var 导航代码 = ""
-        var 父级路径 = "body"
-
-        // 生成安全导航代码（同时检查undefined和null，防止null字段导致后续访问崩溃）
-        for i in 0..<(路径部分.count - 1) {
-            let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
-            父级路径 += ".\(字段名)"
-        }
-
-        let 最终字段 = 路径部分.last ?? 字段路径
+        let 导航 = 生成安全导航(字段路径: 字段路径)
         return """
 // ======================
 // 功能：解锁会员状态（含四级容错）
@@ -601,13 +618,13 @@ const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
-\(导航代码)// 【基础容错】空值保护后修改字段
-if (\(父级路径) !== undefined && \(父级路径) !== null) {
-    \(父级路径).\(最终字段) = true;
+\(导航.导航代码)// 【基础容错】空值保护后修改字段
+if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
+    \(导航.父级路径).\(导航.最终字段) = true;
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """
@@ -615,16 +632,7 @@ $done({ body: JSON.stringify(body) });
 
     /// 生成会员到期时间修改模板
     private static func 生成会员到期模板(字段路径: String, 当前值: String) -> String {
-        let 路径部分 = 字段路径.components(separatedBy: ".")
-        var 导航代码 = ""
-        var 父级路径 = "body"
-        for i in 0..<(路径部分.count - 1) {
-            let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
-            父级路径 += ".\(字段名)"
-        }
-        let 最终字段 = 路径部分.last ?? 字段路径
-
+        let 导航 = 生成安全导航(字段路径: 字段路径)
         // 判断当前值是时间戳还是日期字符串
         let 是否时间戳 = Double(当前值) != nil && (Double(当前值) ?? 0) > 1000000000
         let 永久值: String
@@ -633,7 +641,6 @@ $done({ body: JSON.stringify(body) });
         } else {
             永久值 = "\"2099-12-31 23:59:59\""
         }
-
         return """
 // ======================
 // 功能：会员永久有效（含四级容错）
@@ -643,12 +650,12 @@ const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
-\(导航代码)if (\(父级路径) !== undefined && \(父级路径) !== null) {
-    \(父级路径).\(最终字段) = \(永久值);
+\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
+    \(导航.父级路径).\(导航.最终字段) = \(永久值);
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """
@@ -656,20 +663,10 @@ $done({ body: JSON.stringify(body) });
 
     /// 生成会员等级修改模板
     private static func 生成会员等级模板(字段路径: String, 当前值: String) -> String {
-        let 路径部分 = 字段路径.components(separatedBy: ".")
-        var 导航代码 = ""
-        var 父级路径 = "body"
-        for i in 0..<(路径部分.count - 1) {
-            let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
-            父级路径 += ".\(字段名)"
-        }
-        let 最终字段 = 路径部分.last ?? 字段路径
-
+        let 导航 = 生成安全导航(字段路径: 字段路径)
         // 判断当前值是数字还是字符串
         let 是否数字 = Int(当前值) != nil
         let 最高值 = 是否数字 ? "6" : "\"VIP6\""
-
         return """
 // ======================
 // 功能：提升会员等级（含四级容错）
@@ -679,12 +676,12 @@ const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
-\(导航代码)if (\(父级路径) !== undefined && \(父级路径) !== null) {
-    \(父级路径).\(最终字段) = \(最高值);
+\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
+    \(导航.父级路径).\(导航.最终字段) = \(最高值);
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """
@@ -724,7 +721,7 @@ try {
 
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """
@@ -771,7 +768,7 @@ try {
 
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """
@@ -825,7 +822,7 @@ try {
     }
     $done({ body: 原始响应体 });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """
@@ -839,7 +836,7 @@ try {
             var 父级路径 = "body"
             var 导航代码 = ""
             for i in 0..<(路径部分.count - 1) {
-                导航代码 += "if (\(父级路径).\(路径部分[i]) !== undefined && \(父级路径).\(路径部分[i]) !== null) { "
+                导航代码 += "if (\(父级路径).\(路径部分[i]) !== undefined && \(父级路径).\(路径部分[i]) !== null && typeof \(父级路径).\(路径部分[i]) === \"object\") { "
                 父级路径 += ".\(路径部分[i])"
             }
             let 最终字段 = 路径部分.last ?? 字段.字段路径
@@ -862,7 +859,7 @@ try {
 
 \(处理代码)$done({ body: JSON.stringify(body) });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """
@@ -870,15 +867,7 @@ try {
 
     /// 生成修改用户昵称模板
     private static func 生成修改昵称模板(字段路径: String, 当前值: String) -> String {
-        let 路径部分 = 字段路径.components(separatedBy: ".")
-        var 导航代码 = ""
-        var 父级路径 = "body"
-        for i in 0..<(路径部分.count - 1) {
-            let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
-            父级路径 += ".\(字段名)"
-        }
-        let 最终字段 = 路径部分.last ?? 字段路径
+        let 导航 = 生成安全导航(字段路径: 字段路径)
         return """
 // ======================
 // 功能：修改用户昵称（含四级容错）
@@ -888,12 +877,12 @@ const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
-\(导航代码)if (\(父级路径) !== undefined && \(父级路径) !== null) {
-    \(父级路径).\(最终字段) = "新昵称";
+\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
+    \(导航.父级路径).\(导航.最终字段) = "新昵称";
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """
@@ -901,15 +890,7 @@ $done({ body: JSON.stringify(body) });
 
     /// 生成修改积分余额模板
     private static func 生成修改积分模板(字段路径: String, 当前值: String) -> String {
-        let 路径部分 = 字段路径.components(separatedBy: ".")
-        var 导航代码 = ""
-        var 父级路径 = "body"
-        for i in 0..<(路径部分.count - 1) {
-            let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
-            父级路径 += ".\(字段名)"
-        }
-        let 最终字段 = 路径部分.last ?? 字段路径
+        let 导航 = 生成安全导航(字段路径: 字段路径)
         // 判断当前值是数字还是字符串
         let 是否数字 = Double(当前值) != nil
         let 新值 = 是否数字 ? "999999" : "\"999999\""
@@ -922,12 +903,12 @@ const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
-\(导航代码)if (\(父级路径) !== undefined && \(父级路径) !== null) {
-    \(父级路径).\(最终字段) = \(新值);
+\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
+    \(导航.父级路径).\(导航.最终字段) = \(新值);
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """

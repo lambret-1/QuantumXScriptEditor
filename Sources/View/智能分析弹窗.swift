@@ -168,7 +168,7 @@ private struct 分析结果视图: View {
                             .foregroundColor(.orange)
                         ForEach(结果.会员字段.prefix(5)) { 字段 in
                             HStack(spacing: 6) {
-                                Text(字段.字段路径)
+                                Text(智能分析服务.路径展示文本(字段.字段路径))
                                     .font(.system(size: 11, design: .monospaced))
                                     .foregroundColor(.primary)
                                 Text("= \(字段.当前值)")
@@ -203,7 +203,7 @@ private struct 分析结果视图: View {
                             .foregroundColor(.red)
                         ForEach(结果.广告字段.prefix(5)) { 字段 in
                             HStack(spacing: 6) {
-                                Text(字段.字段路径)
+                                Text(智能分析服务.路径展示文本(字段.字段路径))
                                     .font(.system(size: 11, design: .monospaced))
                                     .foregroundColor(.primary)
                                 Text("= \(字段.当前值)")
@@ -238,7 +238,7 @@ private struct 分析结果视图: View {
                             .foregroundColor(.blue)
                         ForEach(结果.用户核心字段.prefix(6)) { 字段 in
                             HStack(spacing: 6) {
-                                Text(字段.字段路径)
+                                Text(智能分析服务.路径展示文本(字段.字段路径))
                                     .font(.system(size: 11, design: .monospaced))
                                     .foregroundColor(.primary)
                                 Text("= \(字段.当前值)")
