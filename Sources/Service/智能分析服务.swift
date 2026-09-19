@@ -74,7 +74,7 @@ enum 智能分析服务 {
 
     // MARK: - 关键词配置
 
-    /// 会员状态字段关键词（布尔型，值为true/false）
+    /// 会员状态字段关键词（数字型，值为1/0，圈X脚本中VIP状态通常用1表示）
     private static let 会员状态关键词 = [
         "isVip", "is_vip", "vip", "isMember", "is_member", "member",
         "isSvip", "is_svip", "svip", "isPremium", "is_premium", "premium",
@@ -289,7 +289,7 @@ enum 智能分析服务 {
             let 代码 = 生成会员状态模板(字段路径: 第一个.字段路径, 当前值: 第一个.当前值)
             模板列表.append(生成模板(
                 名称: "解锁会员（\(第一个.字段路径)）",
-                说明: "将会员状态字段设为true，模拟VIP用户",
+                说明: "将会员状态字段设为1，模拟VIP用户",
                 代码: 代码,
                 分类: "会员解锁"
             ))
@@ -423,7 +423,7 @@ try {
 
 try {
     // 【第三步】修改对象里的字段
-    // 例如：if (body.data && typeof body.data === "object") { body.data.isVip = true; }
+    // 例如：if (body.data && typeof body.data === "object") { body.data.isVip = 1; }
 
     // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
     $done({ body: JSON.stringify(body) });
@@ -645,7 +645,7 @@ try {
         let 会员状态字段 = 结果.会员字段.filter { $0.类型 == .会员状态 }
         for 字段 in 会员状态字段 {
             let 导航 = 生成安全导航(字段路径: 字段.字段路径)
-            修改代码块 += "\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === \"object\") {\n    \(导航.父级路径).\(导航.最终字段) = true;  // 会员状态解锁\n}\n"
+            修改代码块 += "\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === \"object\") {\n    \(导航.父级路径).\(导航.最终字段) = 1;  // 会员状态解锁（圈X脚本中VIP状态用数字1表示）\n}\n"
         }
 
         // --- 会员到期时间修改 ---
@@ -769,7 +769,7 @@ try {
 try {
     // 【第三步】修改对象里的字段
 \(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
-    \(导航.父级路径).\(导航.最终字段) = true;
+    \(导航.父级路径).\(导航.最终字段) = 1;  // 会员状态设为1（圈X脚本中VIP状态用数字1表示）
 }
     // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
     $done({ body: JSON.stringify(body) });

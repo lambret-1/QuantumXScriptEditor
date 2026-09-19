@@ -40,7 +40,7 @@ enum 代码补全服务 {
         代码补全项(触发词: "$response.body", 插入代码: "$response.body", 中文说明: "响应体文本，通常需JSON.parse解析", 分类: .响应相关),
         代码补全项(触发词: "$response.statusCode", 插入代码: "$response.statusCode", 中文说明: "HTTP响应状态码（如200、404）", 分类: .响应相关),
         代码补全项(触发词: "$response.headers", 插入代码: "$response.headers", 中文说明: "响应头字典", 分类: .响应相关),
-        代码补全项(触发词: "修改响应体", 插入代码: "let body = JSON.parse($response.body);\nbody.data.isVip = true;\n$done({ body: JSON.stringify(body) });", 中文说明: "完整模板：解析响应JSON、修改字段、序列化返回", 分类: .响应相关),
+        代码补全项(触发词: "修改响应体", 插入代码: "let body = JSON.parse($response.body);\nbody.data.isVip = 1;\n$done({ body: JSON.stringify(body) });", 中文说明: "完整模板：解析响应JSON、修改字段（VIP状态用数字1表示）、序列化返回", 分类: .响应相关),
         代码补全项(触发词: "替换响应文本", 插入代码: "let body = $response.body;\nbody = body.replace(/旧文本/g, \"新文本\");\n$done({ body: body });", 中文说明: "完整模板：全局替换响应体中的文本", 分类: .响应相关),
         代码补全项(触发词: "修改状态码", 插入代码: "$done({ body: $response.body, statusCode: 200 });", 中文说明: "修改HTTP响应状态码（保留原响应体）", 分类: .响应相关),
         代码补全项(触发词: "添加响应头", 插入代码: "const headers = $response.headers;\nheaders[\"X-Custom-Header\"] = \"自定义值\";\n$done({ body: $response.body, headers: headers });", 中文说明: "完整模板：添加自定义响应头（保留原响应体）", 分类: .响应相关),

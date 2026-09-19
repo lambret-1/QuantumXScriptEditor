@@ -151,7 +151,6 @@ if (typeof $response === "undefined" || $response === null) {
     $done({}); return;
 }
 const 原始响应体 = $response.body;
-console.log("🚀 [1] 脚本触发！");
 if (!原始响应体) {
     console.log("❌ [错误] 响应体为空！可能接口返回了 204/304，或者需要开启 MitM");
     $done({}); return;
@@ -174,8 +173,8 @@ try {
     // 【第三步】修改对象里的字段（空值保护：检查data字段存在且为对象）
     if (body.data && typeof body.data === "object") {
         // ====== 配置区：在这里修改需要的字段 ======
-        body.data.user.isvip = 1;                                    // 会员状态设为true
-        body.data.vipExpire = String(body.data.user.vipExpire || "2099-12-31"); // 会员到期时间
+        body.data.isVip = 1;                                       // 会员状态设为1（圈X脚本中VIP状态通常用数字1表示）
+        body.data.vipExpire = String(body.data.vipExpire || "2099-12-31"); // 会员到期时间
         // ============================================
         console.log("👑 [4] 字段修改完毕");
     } else {
