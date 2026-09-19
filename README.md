@@ -69,6 +69,12 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.3.5
+- 修复更新窗口异常超出屏幕 + APP前台进入立即检查更新：
+  - 【修复窗口超出屏幕】根本原因是富文本视图isScrollEnabled=false导致在ScrollView中高度计算异常，内容过多时弹窗无限增高超出屏幕。修复方案：富文本视图新增可滚动参数，更新弹窗中改为内部滚动（isScrollEnabled=true），去掉外层ScrollView；弹窗整体限制最大高度为屏幕高度85%
+  - 【新增前台检测更新】APP从后台进入前台时（willEnterForegroundNotification）立即触发更新检测，不受启动时24小时限制；为避免频繁切换APP重复请求，增加2分钟最小间隔；检测失败静默处理不打扰用户；有新版本且未显示弹窗时才弹出
+  - 涉及文件：富文本视图.swift、更新检测弹窗.swift、脚本列表页.swift
+
 ### v1.3.4
 - 所有代码模板按照圈X实战标准脚本原理全面重写：
   - 【统一流程】所有响应处理类模板统一遵循圈X实战五步法：IIFE包裹→$response存在性检查→响应体空值检查→Content-Type/首字符判断非JSON放行→try-catch包裹JSON.parse→修改字段→JSON.stringify→$done返回→catch中原样放行

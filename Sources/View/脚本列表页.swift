@@ -25,6 +25,8 @@ struct 脚本列表页: View {
     @State private var 检测失败信息 = ""
     /// 是否显示检测失败弹窗
     @State private var 显示检测失败弹窗 = false
+    /// 上次前台进入检测更新的时间（用于2分钟内不重复检测）
+    @State private var 上次前台检测时间: Date?
     // MARK: - 长按上下文菜单状态
     /// 长按选中的脚本
     @State private var 长按选中脚本: 脚本模型?
@@ -108,6 +110,10 @@ struct 脚本列表页: View {
                 .onAppear {
                     自动检测更新()
                 }
+                // 【新增】APP从后台进入前台时立即检查更新
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                    前台进入检测更新()
+                }
 
                 // 错误提示浮层
                 if let 错误 = 视图模型.错误提示 {
@@ -165,6 +171,37 @@ struct 脚本列表页: View {
             if App更新服务.有新版本(最新版本: 信息.版本号, 当前版本: App更新服务.当前版本号) {
                 更新信息 = 信息
                 显示更新弹窗 = true
+            }
+        }
+    }
+
+    /// 前台进入检测更新（APP从后台进入前台时立即触发，不受24小时限制，但2分钟内不重复检测）
+    private func 前台进入检测更新() {
+        // 避免正在检测时重复触发
+        guard !检测更新中 else { return }
+        // 避免2分钟内重复检测（用户频繁切换APP时不重复请求）
+        if let 上次时间 = 上次前台检测时间,
+           Date().timeIntervalSince(上次时间) < 120 {
+            return
+        }
+        上次前台检测时间 = Date()
+
+        App更新服务.检测最新版本 { [weak self] 信息, 错误 in
+            guard let 自身 = self else { return }
+            // 检测失败：静默处理，不弹窗打扰用户
+            if 错误 != nil {
+                return
+            }
+            guard let 信息 = 信息 else { return }
+            // 检查是否被忽略
+            if let 忽略版本 = App更新服务.忽略版本号, 忽略版本 == 信息.版本号 {
+                return
+            }
+            // 有新版本且当前未显示更新弹窗时才弹出
+            if App更新服务.有新版本(最新版本: 信息.版本号, 当前版本: App更新服务.当前版本号),
+               !自身.显示更新弹窗 {
+                自身.更新信息 = 信息
+                自身.显示更新弹窗 = true
             }
         }
     }

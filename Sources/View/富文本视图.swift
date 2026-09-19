@@ -11,12 +11,14 @@ struct 富文本视图: UIViewRepresentable {
     var 字体大小: CGFloat = 13
     /// 文本颜色
     var 文字颜色: UIColor = .label
+    /// 是否可滚动（true时内部滚动，false时自适应内容高度）
+    var 可滚动: Bool = false
 
     func makeUIView(context: Context) -> UITextView {
         let 文本视图 = UITextView()
         文本视图.isEditable = false
         文本视图.isSelectable = true
-        文本视图.isScrollEnabled = false
+        文本视图.isScrollEnabled = 可滚动
         文本视图.backgroundColor = .clear
         文本视图.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
         文本视图.textContainer.lineFragmentPadding = 0
@@ -25,6 +27,7 @@ struct 富文本视图: UIViewRepresentable {
     }
 
     func updateUIView(_ 文本视图: UITextView, context: Context) {
+        文本视图.isScrollEnabled = 可滚动
         let 富文本 = Markdown解析器.解析(文本, 字体大小: 字体大小, 文字颜色: 文字颜色)
         文本视图.attributedText = 富文本
     }

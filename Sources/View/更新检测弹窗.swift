@@ -46,6 +46,8 @@ struct 更新检测弹窗: View {
             .background(Color(.systemBackground))
             .cornerRadius(16)
             .padding(.horizontal, 32)
+            // 【关键修复】限制弹窗最大高度为屏幕高度的85%，避免内容过多时超出屏幕
+            .frame(maxHeight: UIScreen.main.bounds.height * 0.85)
         }
     }
 
@@ -111,14 +113,12 @@ struct 更新检测弹窗: View {
                 }
             }
 
-            // 发布说明（富文本，支持Markdown格式，可滚动）
-            ScrollView {
-                富文本视图(文本: 更新信息.发布说明, 字体大小: 13)
-                    .frame(minHeight: 0) // 自适应内容高度
-            }
-            .frame(maxHeight: 180) // 发布说明最大高度180pt，富文本需要更多空间
-            .background(Color(UIColor.systemGray6))
-            .cornerRadius(8)
+            // 发布说明（富文本，支持Markdown格式，内部滚动）
+            // 【关键修复】富文本视图改为内部滚动（isScrollEnabled=true），避免在ScrollView中高度计算异常导致弹窗超出屏幕
+            富文本视图(文本: 更新信息.发布说明, 字体大小: 13, 可滚动: true)
+                .frame(maxHeight: 180) // 发布说明最大高度180pt
+                .background(Color(UIColor.systemGray6))
+                .cornerRadius(8)
 
             // 操作按钮
             VStack(spacing: 10) {
