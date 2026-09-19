@@ -398,7 +398,7 @@ try {
     // 例如：if (body.data) { body.data.isVip = true; }
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """,
@@ -607,7 +607,7 @@ if (\(父级路径) !== undefined && \(父级路径) !== null) {
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """
@@ -648,7 +648,7 @@ try {
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """
@@ -684,7 +684,7 @@ try {
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """
@@ -724,7 +724,7 @@ try {
 
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """
@@ -771,7 +771,7 @@ try {
 
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """
@@ -825,7 +825,7 @@ try {
     }
     $done({ body: 原始响应体 });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """
@@ -862,7 +862,7 @@ try {
 
 \(处理代码)$done({ body: JSON.stringify(body) });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """
@@ -893,7 +893,7 @@ try {
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """
@@ -927,7 +927,7 @@ try {
 }
 $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    $console.log("[兜底] 脚本异常: " + 错误.message);
+    console.log("[兜底] 脚本异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """

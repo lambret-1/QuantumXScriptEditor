@@ -16,7 +16,7 @@ enum 代码补全服务 {
         代码补全项(触发词: "$environment", 插入代码: "$environment", 中文说明: "环境变量对象，包含系统与脚本环境信息", 分类: .全局对象),
         代码补全项(触发词: "$prefs", 插入代码: "$prefs", 中文说明: "偏好设置对象，读取圈X配置中的偏好值", 分类: .全局对象),
         代码补全项(触发词: "$config", 插入代码: "$config", 中文说明: "配置对象，访问脚本所在节点的配置信息", 分类: .全局对象),
-        代码补全项(触发词: "$console", 插入代码: "$console.log(\"调试信息\");", 中文说明: "控制台输出，用于脚本调试（圈X日志中查看）", 分类: .全局对象),
+        代码补全项(触发词: "console", 插入代码: "console.log(\"调试信息\");", 中文说明: "控制台输出，圈X标准写法，用于脚本调试（圈X日志中查看）", 分类: .全局对象),
         代码补全项(触发词: "$task", 插入代码: "$task.fetch({url: \"https://example.com\", method: \"GET\"}).then(function(response) { return response.body; });", 中文说明: "圈X高级HTTP任务API，支持Promise风格异步请求", 分类: .全局对象),
 
         // MARK: 请求相关
@@ -42,10 +42,10 @@ enum 代码补全服务 {
         代码补全项(触发词: "替换响应文本", 插入代码: "let body = $response.body;\nbody = body.replace(/旧文本/g, \"新文本\");\n$done({ body: body });", 中文说明: "完整模板：全局替换响应体中的文本", 分类: .响应相关),
         代码补全项(触发词: "修改状态码", 插入代码: "$done({ body: $response.body, statusCode: 200 });", 中文说明: "修改HTTP响应状态码（保留原响应体）", 分类: .响应相关),
         代码补全项(触发词: "添加响应头", 插入代码: "const headers = $response.headers;\nheaders[\"X-Custom-Header\"] = \"自定义值\";\n$done({ body: $response.body, headers: headers });", 中文说明: "完整模板：添加自定义响应头（保留原响应体）", 分类: .响应相关),
-        代码补全项(触发词: "安全解析响应JSON", 插入代码: "let body = {};\ntry {\n    body = JSON.parse($response.body);\n} catch (e) {\n    $console.log(\"JSON解析失败: \" + e.message);\n    $done();\n    return;\n}", 中文说明: "完整模板：带异常捕获的响应体JSON解析，失败时原样返回", 分类: .响应相关),
+        代码补全项(触发词: "安全解析响应JSON", 插入代码: "let body = {};\ntry {\n    body = JSON.parse($response.body);\n} catch (e) {\n    console.log(\"JSON解析失败: \" + e.message);\n    $done();\n    return;\n}", 中文说明: "完整模板：带异常捕获的响应体JSON解析，失败时原样返回", 分类: .响应相关),
         代码补全项(触发词: "注入JS到HTML", 插入代码: "let body = $response.body;\nconst 注入脚本 = \"<script>alert('注入成功')</script>\";\nbody = body.replace(\"</head>\", 注入脚本 + \"</head>\");\n$done({ body: body });", 中文说明: "完整模板：向HTML响应中注入JS脚本（需响应类型为HTML）", 分类: .响应相关),
         代码补全项(触发词: "修改响应状态码", 插入代码: "$done({ body: $response.body, statusCode: 200 });", 中文说明: "修改HTTP响应状态码（保留原响应体）", 分类: .响应相关),
-        代码补全项(触发词: "四级容错模板", 插入代码: "const 原始响应体 = ($response && $response.body) || \"\";\ntry {\n    let body = {};\n    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }\n    // TODO: 在这里修改body字段\n    $done({ body: JSON.stringify(body) });\n} catch (错误) {\n    $console.log(\"[兜底] 脚本异常: \" + 错误.message);\n    $done({ body: 原始响应体 });\n}", 中文说明: "完整四级容错模板：空值保护/数据校验/异常隔离/兜底返回，任何异常都返回原始响应", 分类: .响应相关),
+        代码补全项(触发词: "四级容错模板", 插入代码: "const 原始响应体 = ($response && $response.body) || \"\";\ntry {\n    let body = {};\n    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }\n    // TODO: 在这里修改body字段\n    $done({ body: JSON.stringify(body) });\n} catch (错误) {\n    console.log(\"[兜底] 脚本异常: \" + 错误.message);\n    $done({ body: 原始响应体 });\n}", 中文说明: "完整四级容错模板：空值保护/数据校验/异常隔离/兜底返回，任何异常都返回原始响应", 分类: .响应相关),
         代码补全项(触发词: "安全读取嵌套字段", 插入代码: "function 安全读取(obj, 路径) {\n    return String(路径).split(\".\").reduce(function(o, k) {\n        return (o || {})[k];\n    }, obj);\n}", 中文说明: "工具函数：安全读取嵌套JSON字段，字段不存在时返回undefined不崩溃", 分类: .响应相关),
 
         // MARK: 网络请求

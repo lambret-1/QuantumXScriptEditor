@@ -271,11 +271,13 @@ final class 脚本沙箱服务 {
         ]
         上下文.setObject(响应对象, forKeyedSubscript: "$response" as NSString)
 
-        // 注入 $console 对象（部分脚本使用$console.log输出调试信息）
+        // 注入 console 对象（圈X标准写法，console.log输出调试信息）
         let 日志函数: @convention(block) (String) -> Void = { [weak self] 消息 in
             self?.追加输出("[日志] \(消息)\n")
         }
         let 控制台对象: [String: Any] = ["log": 日志函数]
+        上下文.setObject(控制台对象, forKeyedSubscript: "console" as NSString)
+        // 兼容旧写法 $console.log（同时注入，避免旧脚本报错）
         上下文.setObject(控制台对象, forKeyedSubscript: "$console" as NSString)
 
         追加输出("========== 开始执行脚本 ==========\n")

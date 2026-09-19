@@ -99,7 +99,7 @@ try {
     try {
         body = JSON.parse($request.body);
     } catch (解析错误) {
-        $console.log("[容错] 请求体JSON解析失败: " + 解析错误.message);
+        console.log("[容错] 请求体JSON解析失败: " + 解析错误.message);
         $done($request);
         return;
     }
@@ -111,7 +111,7 @@ try {
     $done($request);
 } catch (错误) {
     // 【终极容错】任何异常都原样放行请求
-    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    console.log("[兜底] 脚本执行异常: " + 错误.message);
     $done($request);
 }
 """,
@@ -128,35 +128,58 @@ try {
 // 功能：修改接口返回的JSON数据
 // 场景：修改会员状态、余额等字段
 // 容错等级：四级（空值保护/数据校验/异常隔离/兜底返回）
+// 参考真实圈X脚本风格，含详细分级日志
 // ======================
+console.log("🚀 [1] 脚本触发！");
+
+// 【第一步】检查 $response 是否存在（挂在请求阶段会未定义）
+if (typeof $response === "undefined" || $response === null) {
+    console.log("❌ [错误] $response 未定义！请在圈X的 [rewrite_local] 中使用 script-response-body");
+    $done({}); return;
+}
+
+// 【第二步】检查响应体是否为空
+var bodyText = $response.body;
+if (!bodyText) {
+    console.log("❌ [错误] 响应体为空！可能接口返回了 204/304，或者需要开启 MitM");
+    $done({}); return;
+}
+
+console.log("📦 [2] 成功获取响应体，长度: " + bodyText.length);
+console.log("🔍 [调试] 响应体前100字符: " + bodyText.substring(0, 100));
+
 // 保存原始响应体作为终极兜底
-const 原始响应体 = ($response && $response.body) || "";
+const 原始响应体 = bodyText;
 
 try {
-    // 【高级容错】安全解析JSON，解析失败直接返回原始响应
-    let body = {};
+    // 【第三步】安全解析JSON
+    var body = {};
     try {
-        body = JSON.parse($response.body);
+        body = JSON.parse(bodyText);
+        console.log("✅ [3] JSON 解析成功");
     } catch (解析错误) {
-        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        console.log("❌ [异常] JSON解析失败: " + 解析错误.message);
         $done({ body: 原始响应体 });
         return;
     }
 
-    // 【基础容错】空值保护：检查data字段存在且为对象
+    // 【第四步】修改字段（空值保护：检查data字段存在且为对象）
     if (body.data && typeof body.data === "object") {
-        // 【进阶容错】类型转换：确保字段类型正确
-        body.data.isVip = true;
-        body.data.vipExpire = String(body.data.vipExpire || "2099-12-31");
+        // ====== 配置区：在这里修改需要的字段 ======
+        body.data.isVip = true;                                    // 会员状态设为true
+        body.data.vipExpire = String(body.data.vipExpire || "2099-12-31"); // 会员到期时间
+        // ============================================
+        console.log("👑 [4] 字段修改完毕");
     } else {
-        $console.log("[降级] body.data不存在或非对象，跳过修改");
+        console.log("⚠️ [降级] body.data不存在或非对象，跳过修改");
+        console.log("💡 body 下目前的键有: " + Object.keys(body).join(", "));
     }
 
-    // 序列化返回
+    console.log("🎉 [5] 脚本执行成功！");
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
-    // 【终极容错】兜底返回：任何异常都返回原始响应，保证APP正常接收
-    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    // 【终极容错】兜底返回：任何异常都返回原始响应
+    console.log("❌ [异常] 脚本执行异常: " + 错误);
     $done({ body: 原始响应体 });
 }
 """,
@@ -183,13 +206,13 @@ try {
         // 将所有"旧文本"替换为"新文本"
         body = body.replace(/旧文本/g, "新文本");
     } else {
-        $console.log("[降级] 响应体为空，跳过替换");
+        console.log("[降级] 响应体为空，跳过替换");
     }
 
     $done({ body: body });
 } catch (错误) {
     // 【终极容错】兜底返回
-    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    console.log("[兜底] 脚本执行异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """,
@@ -227,7 +250,7 @@ try {
     try {
         body = JSON.parse($response.body);
     } catch (解析错误) {
-        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        console.log("[容错] JSON解析失败: " + 解析错误.message);
         $done({ body: 原始响应体 });
         return;
     }
@@ -257,14 +280,14 @@ try {
         try {
             删除字段(body, 路径);
         } catch (字段错误) {
-            $console.log("[降级] 删除字段失败(" + 路径 + "): " + 字段错误.message);
+            console.log("[降级] 删除字段失败(" + 路径 + "): " + 字段错误.message);
         }
     });
 
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
     // 【终极容错】兜底返回
-    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    console.log("[兜底] 脚本执行异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """,
@@ -288,7 +311,7 @@ try {
     try {
         body = JSON.parse($response.body);
     } catch (解析错误) {
-        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        console.log("[容错] JSON解析失败: " + 解析错误.message);
         $done({ body: 原始响应体 });
         return;
     }
@@ -313,7 +336,7 @@ try {
     let 路径有效 = true;
     for (let i = 0; i < 部分.length - 1; i++) {
         if (父级[部分[i]] === undefined || 父级[部分[i]] === null || typeof 父级[部分[i]] !== "object") {
-            $console.log("[降级] 数组路径不存在: " + 数组路径);
+            console.log("[降级] 数组路径不存在: " + 数组路径);
             路径有效 = false;
             break;
         }
@@ -333,14 +356,14 @@ try {
             });
             父级[部分[部分.length - 1]] = 过滤后;
         } else {
-            $console.log("[降级] 目标字段不是数组，跳过过滤");
+            console.log("[降级] 目标字段不是数组，跳过过滤");
         }
     }
 
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
     // 【终极容错】兜底返回
-    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    console.log("[兜底] 脚本执行异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """,
@@ -364,7 +387,7 @@ try {
     try {
         body = JSON.parse($response.body);
     } catch (解析错误) {
-        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        console.log("[容错] JSON解析失败: " + 解析错误.message);
         $done({ body: 原始响应体 });
         return;
     }
@@ -382,7 +405,7 @@ try {
     let 路径有效 = true;
     for (let i = 0; i < 部分.length - 1; i++) {
         if (父级[部分[i]] === undefined || 父级[部分[i]] === null || typeof 父级[部分[i]] !== "object") {
-            $console.log("[降级] 数组路径不存在: " + 数组路径);
+            console.log("[降级] 数组路径不存在: " + 数组路径);
             路径有效 = false;
             break;
         }
@@ -401,14 +424,14 @@ try {
                 }
             });
         } else {
-            $console.log("[降级] 目标字段不是数组，跳过批量删除");
+            console.log("[降级] 目标字段不是数组，跳过批量删除");
         }
     }
 
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
     // 【终极容错】兜底返回
-    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    console.log("[兜底] 脚本执行异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """,
@@ -432,7 +455,7 @@ try {
 
     // 【进阶容错】数据校验：空响应直接返回
     if (html.length === 0) {
-        $console.log("[降级] 响应体为空，跳过HTML处理");
+        console.log("[降级] 响应体为空，跳过HTML处理");
         $done({ body: 原始响应体 });
         return;
     }
@@ -452,14 +475,14 @@ try {
         try {
             html = html.replace(正则, "<!-- 广告已移除 -->");
         } catch (正则错误) {
-            $console.log("[降级] 正则替换异常: " + 正则错误.message);
+            console.log("[降级] 正则替换异常: " + 正则错误.message);
         }
     });
 
     $done({ body: html });
 } catch (错误) {
     // 【终极容错】兜底返回
-    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    console.log("[兜底] 脚本执行异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """,
@@ -492,7 +515,7 @@ try {
             return 响应文本.indexOf(关键词) !== -1;
         });
     } catch (检测错误) {
-        $console.log("[降级] 关键词检测异常: " + 检测错误.message);
+        console.log("[降级] 关键词检测异常: " + 检测错误.message);
     }
 
     // 根据检测结果决定响应体
@@ -505,7 +528,7 @@ try {
     $done({ body: 最终响应体 });
 } catch (错误) {
     // 【终极容错】兜底返回
-    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    console.log("[兜底] 脚本执行异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """,
@@ -534,14 +557,14 @@ $httpClient.get("https://httpbin.org/get", {}, function(error, response) {
     try {
         data = JSON.parse(response.body);
     } catch (解析错误) {
-        $console.log("[容错] 响应JSON解析失败: " + 解析错误.message);
+        console.log("[容错] 响应JSON解析失败: " + 解析错误.message);
         $done();
         return;
     }
     try {
         $notify("请求成功", "", "来源IP：" + String(data.origin || "未知"));
     } catch (通知错误) {
-        $console.log("[降级] 通知发送失败: " + 通知错误.message);
+        console.log("[降级] 通知发送失败: " + 通知错误.message);
     }
     $done();
 });
@@ -576,7 +599,7 @@ $httpClient.post("https://httpbin.org/post", {
     try {
         $notify("提交成功", "", 响应摘要);
     } catch (通知错误) {
-        $console.log("[降级] 通知发送失败: " + 通知错误.message);
+        console.log("[降级] 通知发送失败: " + 通知错误.message);
     }
     $done();
 });
@@ -607,7 +630,7 @@ $persistentStore.write(String(count), "运行次数");
 try {
     $notify("运行统计", "", "本脚本已运行" + count + "次");
 } catch (通知错误) {
-    $console.log("[降级] 通知发送失败: " + 通知错误.message);
+    console.log("[降级] 通知发送失败: " + 通知错误.message);
 }
 $done();
 """,
@@ -631,7 +654,7 @@ try {
     try {
         body = JSON.parse($response.body);
     } catch (解析错误) {
-        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        console.log("[容错] JSON解析失败: " + 解析错误.message);
         $done({ body: 原始响应体 });
         return;
     }
@@ -647,13 +670,13 @@ try {
         try {
             $notify("接口返回错误", "错误码", 错误码 + " - " + 错误信息);
         } catch (通知错误) {
-            $console.log("[降级] 通知发送失败: " + 通知错误.message);
+            console.log("[降级] 通知发送失败: " + 通知错误.message);
         }
         $done({ body: 原始响应体 });
     }
 } catch (错误) {
     // 【终极容错】兜底返回
-    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    console.log("[兜底] 脚本执行异常: " + 错误.message);
     $done({ body: 原始响应体 });
 }
 """,
@@ -680,11 +703,11 @@ function getQueryParam(url, name) {
         try {
             return decodeURIComponent(match[1]);
         } catch (解码错误) {
-            $console.log("[降级] URL参数解码失败: " + 解码错误.message);
+            console.log("[降级] URL参数解码失败: " + 解码错误.message);
             return match[1]; // 降级返回原始未解码值
         }
     } catch (错误) {
-        $console.log("[兜底] URL参数解析异常: " + 错误.message);
+        console.log("[兜底] URL参数解析异常: " + 错误.message);
         return null;
     }
 }
