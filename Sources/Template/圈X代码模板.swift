@@ -7,7 +7,7 @@ import Foundation
 /// 第二步：检查Content-Type或响应体首字符，非JSON直接放行不破坏页面
 /// 第三步：try-catch包裹JSON.parse把文本"翻译"成可修改的对象
 /// 第四步：修改对象里的字段，JSON.stringify重新"压回"文本，调用$done({body:...})
-/// 第五步：catch中任何异常都$done()原样放行，保证脚本永不崩溃
+/// 第五步：catch中任何异常都$done({})原样放行，保证脚本永不崩溃
 struct 圈X代码模板: Identifiable {
     let id = UUID()
     /// 模板标题
@@ -162,13 +162,13 @@ $done($request);
     // 1. 检查响应对象是否存在
     if (typeof $response === 'undefined' || $response === null) {
         console.log("❌ [错误] $response 未定义！请在圈X的 [rewrite_local] 里使用 script-response-body");
-        $done(); return;
+        $done({}); return;
     }
 
     var body = $response.body;
     if (!body) {
         console.log("⚠️ [错误] 响应体为空！可能接口返回了 204/304，或者需要开启 MitM");
-        $done(); return;
+        $done({}); return;
     }
     console.log("📦 [2] 成功获取 Body，长度: " + body.length);
 
@@ -178,7 +178,7 @@ $done($request);
                  (body.charAt(0) === "{" || body.charAt(0) === "[");
     if (!isJson) {
         console.log("⚠️ 非 JSON 响应（网页/图片等），直接放行");
-        $done(); return;
+        $done({}); return;
     }
 
     try {
@@ -202,7 +202,7 @@ $done($request);
     } catch (e) {
         console.log("❌ [异常] 解析失败：" + e + "，原样放行");
         // 解析失败直接放行，不修改原始响应
-        $done();
+        $done({});
     }
 })();
 """,
@@ -225,13 +225,13 @@ $done($request);
     // 1. 检查响应对象
     if (typeof $response === 'undefined' || $response === null) {
         console.log("❌ [错误] $response 未定义");
-        $done(); return;
+        $done({}); return;
     }
 
     var body = $response.body;
     if (!body) {
         console.log("⚠️ 响应体为空，直接放行");
-        $done(); return;
+        $done({}); return;
     }
     console.log("📦 [2] Body 长度: " + body.length);
 
@@ -254,7 +254,7 @@ $done($request);
         $done({ body: text });
     } catch (e) {
         console.log("❌ [异常] 脚本异常：" + e + "，原样放行");
-        $done();
+        $done({});
     }
 })();
 """,
@@ -291,13 +291,13 @@ $done({ body: "{}", statusCode: 200 });
     // 1. 检查响应对象
     if (typeof $response === 'undefined' || $response === null) {
         console.log("❌ [错误] $response 未定义");
-        $done(); return;
+        $done({}); return;
     }
 
     var body = $response.body;
     if (!body) {
         console.log("⚠️ 响应体为空，直接放行");
-        $done(); return;
+        $done({}); return;
     }
     console.log("📦 [2] Body 长度: " + body.length);
 
@@ -307,7 +307,7 @@ $done({ body: "{}", statusCode: 200 });
                  (body.charAt(0) === "{" || body.charAt(0) === "[");
     if (!isJson) {
         console.log("⚠️ 非 JSON 响应，直接放行");
-        $done(); return;
+        $done({}); return;
     }
 
     try {
@@ -348,7 +348,7 @@ $done({ body: "{}", statusCode: 200 });
         $done({ body: JSON.stringify(obj) });
     } catch (e) {
         console.log("❌ [异常] 解析失败：" + e + "，原样放行");
-        $done();
+        $done({});
     }
 })();
 """,
@@ -371,13 +371,13 @@ $done({ body: "{}", statusCode: 200 });
     // 1. 检查响应对象
     if (typeof $response === 'undefined' || $response === null) {
         console.log("❌ [错误] $response 未定义");
-        $done(); return;
+        $done({}); return;
     }
 
     var body = $response.body;
     if (!body) {
         console.log("⚠️ 响应体为空，直接放行");
-        $done(); return;
+        $done({}); return;
     }
     console.log("📦 [2] Body 长度: " + body.length);
 
@@ -387,7 +387,7 @@ $done({ body: "{}", statusCode: 200 });
                  (body.charAt(0) === "{" || body.charAt(0) === "[");
     if (!isJson) {
         console.log("⚠️ 非 JSON 响应，直接放行");
-        $done(); return;
+        $done({}); return;
     }
 
     try {
@@ -442,7 +442,7 @@ $done({ body: "{}", statusCode: 200 });
         $done({ body: JSON.stringify(obj) });
     } catch (e) {
         console.log("❌ [异常] 解析失败：" + e + "，原样放行");
-        $done();
+        $done({});
     }
 })();
 """,
@@ -465,13 +465,13 @@ $done({ body: "{}", statusCode: 200 });
     // 1. 检查响应对象
     if (typeof $response === 'undefined' || $response === null) {
         console.log("❌ [错误] $response 未定义");
-        $done(); return;
+        $done({}); return;
     }
 
     var body = $response.body;
     if (!body) {
         console.log("⚠️ 响应体为空，直接放行");
-        $done(); return;
+        $done({}); return;
     }
     console.log("📦 [2] Body 长度: " + body.length);
 
@@ -481,7 +481,7 @@ $done({ body: "{}", statusCode: 200 });
                  (body.charAt(0) === "{" || body.charAt(0) === "[");
     if (!isJson) {
         console.log("⚠️ 非 JSON 响应，直接放行");
-        $done(); return;
+        $done({}); return;
     }
 
     try {
@@ -531,7 +531,7 @@ $done({ body: "{}", statusCode: 200 });
         $done({ body: JSON.stringify(obj) });
     } catch (e) {
         console.log("❌ [异常] 解析失败：" + e + "，原样放行");
-        $done();
+        $done({});
     }
 })();
 """,
@@ -554,13 +554,13 @@ $done({ body: "{}", statusCode: 200 });
     // 1. 检查响应对象
     if (typeof $response === 'undefined' || $response === null) {
         console.log("❌ [错误] $response 未定义");
-        $done(); return;
+        $done({}); return;
     }
 
     var body = $response.body;
     if (!body) {
         console.log("⚠️ 响应体为空，直接放行");
-        $done(); return;
+        $done({}); return;
     }
     console.log("📦 [2] Body 长度: " + body.length);
 
@@ -571,7 +571,7 @@ $done({ body: "{}", statusCode: 200 });
         // 空响应直接返回
         if (html.length === 0) {
             console.log("⚠️ [降级] 响应体为空，跳过HTML处理");
-            $done(); return;
+            $done({}); return;
         }
 
         // 3. 正则移除广告节点
@@ -600,7 +600,7 @@ $done({ body: "{}", statusCode: 200 });
         $done({ body: html });
     } catch (e) {
         console.log("❌ [异常] 脚本异常：" + e + "，原样放行");
-        $done();
+        $done({});
     }
 })();
 """,
@@ -623,13 +623,13 @@ $done({ body: "{}", statusCode: 200 });
     // 1. 检查响应对象
     if (typeof $response === 'undefined' || $response === null) {
         console.log("❌ [错误] $response 未定义");
-        $done(); return;
+        $done({}); return;
     }
 
     var body = $response.body;
     if (!body) {
         console.log("⚠️ 响应体为空，直接放行");
-        $done(); return;
+        $done({}); return;
     }
     console.log("📦 [2] Body 长度: " + body.length);
 
@@ -667,7 +667,7 @@ $done({ body: "{}", statusCode: 200 });
         $done({ body: 最终响应体 });
     } catch (e) {
         console.log("❌ [异常] 脚本异常：" + e + "，原样放行");
-        $done();
+        $done({});
     }
 })();
 """,
@@ -696,7 +696,7 @@ $task.fetch({
         data = JSON.parse(response.body);
     } catch (解析错误) {
         console.log("[容错] 响应JSON解析失败: " + 解析错误);
-        $done(); return;
+        $done({}); return;
     }
     // 处理数据
     try {
@@ -704,11 +704,11 @@ $task.fetch({
     } catch (通知错误) {
         console.log("[降级] 通知发送失败: " + 通知错误);
     }
-    $done();
+    $done({});
 }, function(reason) {
     // 请求失败回调
     try { $notify("请求失败", "", String(reason.error || reason)); } catch (e) {}
-    $done();
+    $done({});
 });
 """,
             用途说明: "使用圈X原生$task.fetch发起GET请求，Promise风格处理",
@@ -743,10 +743,10 @@ $task.fetch({
     } catch (通知错误) {
         console.log("[降级] 通知发送失败: " + 通知错误);
     }
-    $done();
+    $done({});
 }, function(reason) {
     try { $notify("提交失败", "", String(reason.error || reason)); } catch (e) {}
-    $done();
+    $done({});
 });
 """,
             用途说明: "使用圈X原生$task.fetch发起POST请求，带请求头和请求体",
@@ -778,7 +778,7 @@ try {
 } catch (通知错误) {
     console.log("[降级] 通知发送失败: " + 通知错误);
 }
-$done();
+$done({});
 """,
             用途说明: "使用圈X原生$prefs读写持久化数据（含NaN容错）",
             使用场景: "保存运行次数、用户配置等跨运行保留的数据"
@@ -799,13 +799,13 @@ $done();
     // 1. 检查响应对象
     if (typeof $response === 'undefined' || $response === null) {
         console.log("❌ [错误] $response 未定义");
-        $done(); return;
+        $done({}); return;
     }
 
     var body = $response.body;
     if (!body) {
         console.log("⚠️ 响应体为空，直接放行");
-        $done(); return;
+        $done({}); return;
     }
     console.log("📦 [2] Body 长度: " + body.length);
 
@@ -815,7 +815,7 @@ $done();
                  (body.charAt(0) === "{" || body.charAt(0) === "[");
     if (!isJson) {
         console.log("⚠️ 非 JSON 响应，直接放行");
-        $done(); return;
+        $done({}); return;
     }
 
     try {
@@ -841,7 +841,7 @@ $done();
         }
     } catch (e) {
         console.log("❌ [异常] 解析失败：" + e + "，原样放行");
-        $done();
+        $done({});
     }
 })();
 """,
@@ -869,7 +869,7 @@ $notify(
 $notify("普通通知", "副标题", "消息内容");
 
 console.log("[通知] 已发送通知弹窗");
-$done();
+$done({});
 """,
             用途说明: "使用圈X原生$notify弹出带open-url跳转链接的通知",
             使用场景: "需要用户点击通知后跳转到指定页面时使用"
@@ -906,7 +906,7 @@ const token = getQueryParam($request.url, "token");
 try {
     $notify("URL参数", "token", token || "未找到");
 } catch (e) {}
-$done();
+$done({});
 """,
             用途说明: "提供从URL中解析查询参数的工具函数（含解码容错）",
             使用场景: "需要读取请求URL上的token、id等参数时"
@@ -931,7 +931,7 @@ function formatTime(timestamp) {
 // 使用示例
 const now = formatTime(Date.now());
 $notify("当前时间", "", now);
-$done();
+$done({});
 """,
             用途说明: "提供时间戳转可读日期字符串的工具函数",
             使用场景: "接口返回的时间戳需要转为人类可读格式"
@@ -988,7 +988,7 @@ function 发起请求(选项, 回调) {
 }
 
 发送通知("环境检测", "", "当前环境: " + (isQuanX ? "圈X" : isSurge ? "Surge" : "其他"));
-$done();
+$done({});
 """,
             用途说明: "检测运行环境并提供跨平台通知/请求封装，编写兼容圈X和Surge的脚本",
             使用场景: "脚本需要在多个代理工具中运行时使用"

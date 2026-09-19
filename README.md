@@ -69,6 +69,12 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.3.7
+- 所有代码模板完全对齐用户提供的圈X实战规范脚本：
+  - 【统一$done调用】所有响应处理类模板中原样放行的`$done()`统一改为`$done({})`，与用户提供的规范脚本完全一致（共41处）
+  - 【规范流程确认】所有响应处理类模板已严格遵循圈X实战五步法：IIFE包裹→$response存在性检查→响应体空值检查→Content-Type/首字符判断非JSON放行→try-catch→JSON.parse→修改字段→JSON.stringify→$done({body:...})→catch中$done({})原样放行
+  - 涉及文件：圈X代码模板.swift
+
 ### v1.3.6
 - 修复沙箱JSON解析失败"Unterminated string"根本原因：
   - 【根本原因】`请求真实响应体`方法中调用`解码JSON转义`对原始响应体进行解码，将JSON中的`\"`解码成`"`、`\n`解码成实际换行符、`\\`解码成`\`，破坏了JSON结构，导致脚本中`JSON.parse()`报"Unterminated string"错误
