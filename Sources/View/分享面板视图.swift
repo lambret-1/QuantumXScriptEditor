@@ -64,8 +64,8 @@ enum 分享服务 {
             .first(where: { $0.activationState == .foregroundActive }) else {
             return nil
         }
-        guard let 窗口 = 窗口场景.windows.first(where: { $0.isKeyWindow }) else {
-            return 窗口场景.windows.first
+        guard let 窗口 = 窗口场景.windows.first(where: { $0.isKeyWindow }) ?? 窗口场景.windows.first else {
+            return nil
         }
 
         var 顶层控制器 = 窗口.rootViewController

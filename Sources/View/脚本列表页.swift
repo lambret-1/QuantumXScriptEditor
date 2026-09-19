@@ -56,9 +56,8 @@ struct 脚本列表页: View {
                                 }
                                 // 分享（直接弹出系统分享面板，无中间窗口）
                                 Button(action: {
-                                    if let 文件URL = 视图模型.存储.获取脚本文件URL(脚本) {
-                                        分享服务.分享文件(文件URL: 文件URL)
-                                    }
+                                    let 文件URL = 视图模型.存储.获取脚本文件URL(脚本)
+                                    分享服务.分享文件(文件URL: 文件URL)
                                 }) {
                                     Label("分享", systemImage: "square.and.arrow.up")
                                 }
