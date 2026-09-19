@@ -69,6 +69,17 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.0.1
+- 修复所有响应修改模板的`$done`返回值格式，确保APP能正常接收数据
+- 统一使用`$done({ body: JSON.stringify(body) })`格式返回修改后的响应体
+- 涉及文件：圈X代码模板.swift（9个响应模板）、智能分析服务.swift（10个生成模板）、代码补全服务.swift（7个补全项）、代码键盘视图.swift（6个键盘按钮）
+- 修复内容：
+  - 所有`$response.body = ...; $done($response);`改为`$done({ body: ... });`
+  - 所有提前返回guard的`$done($response)`改为`$done()`（原样透传）
+  - 修复代码键盘中错误的`$done({response: $response})`和`$done({request: $request})`格式
+  - 字符串类型响应（HTML/文本替换）使用`$done({ body: body })`
+  - 修改状态码/响应头时保留原响应体：`$done({ body: $response.body, statusCode: 200 })`
+
 ### v1.0.0
 - 获取信息功能新增用户核心信息识别，里程碑版本v1.0.0
 - 自动识别9类用户核心信息字段：

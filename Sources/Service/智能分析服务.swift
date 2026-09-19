@@ -393,8 +393,7 @@ enum 智能分析服务 {
 let body = JSON.parse($response.body);
 // TODO: 在这里修改响应字段
 // 例如：body.data.isVip = true;
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """,
                 分类: "通用"
             ))
@@ -594,8 +593,7 @@ $done($response);
 let body = JSON.parse($response.body);
 \(导航代码)// 将会员状态设为true
 \(父级路径).\(最终字段) = true;
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """
     }
 
@@ -628,8 +626,7 @@ $done($response);
 let body = JSON.parse($response.body);
 \(导航代码)// 将会员到期时间设为2099年
 \(父级路径).\(最终字段) = \(永久值);
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """
     }
 
@@ -657,8 +654,7 @@ $done($response);
 let body = JSON.parse($response.body);
 \(导航代码)// 将会员等级设为最高级
 \(父级路径).\(最终字段) = \(最高值);
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """
     }
 
@@ -693,8 +689,7 @@ function 删除字段(obj, 路径) {
     删除字段(body, 路径);
 });
 
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """
     }
 
@@ -705,7 +700,7 @@ $done($response);
         var 父级路径 = "body"
         for i in 0..<(路径部分.count - 1) {
             let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined) { $done($response); return; }\n"
+            导航代码 += "if (\(父级路径).\(字段名) === undefined) { $done(); return; }\n"
             父级路径 += ".\(字段名)"
         }
         let 数组名 = 路径部分.last ?? 数组路径
@@ -736,8 +731,7 @@ if (Array.isArray(列表)) {
     });
 }
 
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """
     }
 
@@ -787,7 +781,7 @@ let 信息列表 = [];
 if (信息列表.length > 0) {
     $notify("用户核心信息", "共" + 信息列表.length + "项", 信息列表.join("\\n"));
 }
-$done($response);
+$done();
 """
     }
 
@@ -817,8 +811,7 @@ $done($response);
 // ======================
 let body = JSON.parse($response.body);
 
-\(处理代码)$response.body = JSON.stringify(body);
-$done($response);
+\(处理代码)$done({ body: JSON.stringify(body) });
 """
     }
 
@@ -841,8 +834,7 @@ $done($response);
 let body = JSON.parse($response.body);
 \(导航代码)// 修改用户昵称为自定义名称
 \(父级路径).\(最终字段) = "新昵称";
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """
     }
 
@@ -868,8 +860,7 @@ $done($response);
 let body = JSON.parse($response.body);
 \(导航代码)// 修改积分/余额为指定数值
 \(父级路径).\(最终字段) = \(新值);
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """
     }
 

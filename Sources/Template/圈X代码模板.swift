@@ -122,8 +122,7 @@ if (body.data) {
     body.data.vipExpire = "2099-12-31";
 }
 // 序列化并写回响应
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """,
             用途说明: "解析响应JSON并修改指定字段",
             使用场景: "修改接口返回的会员状态、用户信息等"
@@ -139,8 +138,7 @@ $done($response);
 let body = $response.body;
 // 将所有"旧文本"替换为"新文本"
 body = body.replace(/旧文本/g, "新文本");
-$response.body = body;
-$done($response);
+$done({ body: body });
 """,
             用途说明: "对响应体做文本全局替换",
             使用场景: "修改网页文案、替换广告内容等"
@@ -153,9 +151,7 @@ $done($response);
 // 功能：阻断请求，返回空响应
 // 场景：屏蔽广告或无用接口
 // ======================
-$response.body = "{}";
-$response.statusCode = 200;
-$done($response);
+$done({ body: "{}", statusCode: 200 });
 """,
             用途说明: "将响应体替换为空JSON，实现接口屏蔽",
             使用场景: "屏蔽广告接口、数据上报接口等"
@@ -199,8 +195,7 @@ function 删除字段(obj, 路径) {
 });
 
 // 序列化回字符串并写回响应
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """,
             用途说明: "从JSON响应中删除指定路径的广告字段（支持多级嵌套）",
             使用场景: "接口返回的JSON中包含ad、banner等广告字段，需要剔除后再展示"
@@ -238,7 +233,7 @@ let 数组 = body;
 for (let i = 0; i < 部分.length - 1; i++) {
     if (父级[部分[i]] === undefined) {
         // 路径不存在，原样返回
-        $done($response);
+        $done();
         return;
     }
     父级 = 父级[部分[i]];
@@ -254,8 +249,7 @@ if (Array.isArray(数组)) {
 }
 
 // 写回响应
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """,
             用途说明: "从JSON响应的数组列表中过滤掉广告项（按type/is_ad等字段判断）",
             使用场景: "信息流、文章列表、视频推荐等接口中混入广告卡片，需要剔除广告项"
@@ -288,7 +282,7 @@ const 要删除的字段名 = [
 const 部分 = 数组路径.split(".");
 let 父级 = body;
 for (let i = 0; i < 部分.length - 1; i++) {
-    if (父级[部分[i]] === undefined) { $done($response); return; }
+    if (父级[部分[i]] === undefined) { $done(); return; }
     父级 = 父级[部分[i]];
 }
 const 数组 = 父级[部分[部分.length - 1]];
@@ -302,8 +296,7 @@ if (Array.isArray(数组)) {
     });
 }
 
-$response.body = JSON.stringify(body);
-$done($response);
+$done({ body: JSON.stringify(body) });
 """,
             用途说明: "批量删除数组中每一项的多个广告相关字段",
             使用场景: "列表接口中每一项都带有ad_url、ad_image等广告字段，需要统一清除"
@@ -335,8 +328,7 @@ const 广告匹配规则 = [
 });
 
 // 写回响应
-$response.body = html;
-$done($response);
+$done({ body: html });
 """,
             用途说明: "从HTML响应中正则匹配并移除广告DOM节点（div/iframe/script等）",
             使用场景: "网页中包含广告位div、Google AdSense、广告iframe等需要剔除"
@@ -366,16 +358,15 @@ const 包含广告 = 广告关键词.some(function(关键词) {
     return 响应文本.indexOf(关键词) !== -1;
 });
 
+// 根据检测结果决定响应体
+let 最终响应体 = 响应文本;
 if (包含广告) {
     // 包含广告关键词，返回空响应阻断
-    $response.body = "{}";
-    $response.statusCode = 200;
+    最终响应体 = "{}";
     $notify("广告拦截", "", "已屏蔽含广告关键词的响应");
-} else {
-    // 不包含广告，原样返回
 }
 
-$done($response);
+$done({ body: 最终响应体 });
 """,
             用途说明: "检测响应中是否包含广告关键词，包含则返回空响应阻断",
             使用场景: "无法精确匹配广告字段时，用关键词粗筛屏蔽疑似广告响应"
@@ -462,11 +453,11 @@ $done();
 let body = JSON.parse($response.body);
 if (body.code === 0) {
     // 成功时不通知
-    $done($response);
+    $done();
 } else {
     // 失败时弹窗提醒
     $notify("接口返回错误", "错误码", body.code + " - " + (body.msg || ""));
-    $done($response);
+    $done();
 }
 """,
             用途说明: "根据响应条件决定是否弹出通知",
