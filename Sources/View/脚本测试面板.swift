@@ -104,6 +104,76 @@ struct 脚本测试面板: View {
             }
             .padding(.horizontal, 16)
 
+            // 辅助操作行：获取真实响应体（带缓存）+ 清除缓存
+            HStack(spacing: 10) {
+                if 测试视图模型.正在获取响应体 {
+                    // 获取中状态：显示加载和取消
+                    Button(action: {
+                        测试视图模型.取消获取响应体()
+                    }) {
+                        HStack(spacing: 4) {
+                            活动指示器视图()
+                                .frame(width: 14, height: 14) // 14pt小加载指示器
+                            Text("请求中...")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.orange)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8) // 8pt垂直内边距，辅助按钮紧凑
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                } else {
+                    // 获取真实响应体按钮
+                    Button(action: {
+                        测试视图模型.获取真实响应体()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.down.circle")
+                                .font(.caption)
+                            Text(测试视图模型.真实响应体 != nil ? "刷新响应体" : "获取响应体")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.blue)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8) // 8pt垂直内边距
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                }
+
+                // 清除缓存按钮（有缓存时显示）
+                if 测试视图模型.真实响应体 != nil {
+                    Button(action: {
+                        测试视图模型.清除响应体缓存()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "trash")
+                                .font(.caption)
+                            Text("清缓存")
+                                .font(.caption)
+                        }
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8) // 8pt垂直内边距
+                        .background(Color(UIColor.systemGray5))
+                        .cornerRadius(8)
+                    }
+                }
+
+                // 缓存状态指示
+                if let 响应体 = 测试视图模型.真实响应体, !响应体.isEmpty {
+                    Text("\(响应体.count)字符")
+                        .font(.caption2)
+                        .foregroundColor(.green)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 4)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(4)
+                }
+            }
+            .padding(.horizontal, 16)
+
             // 请求体编辑（可折叠，POST/PUT/PATCH时默认展开）
             if 测试视图模型.展开请求体 {
                 VStack(alignment: .leading, spacing: 6) {
