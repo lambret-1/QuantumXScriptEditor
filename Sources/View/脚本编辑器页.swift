@@ -38,9 +38,6 @@ struct 脚本编辑器页: View {
                 带行号代码编辑器(文本: $视图模型.脚本.内容, 字体大小: 视图模型.字体大小, 使用代码键盘: $使用代码键盘)
                     .frame(height: 420) // 编辑器固定高度420pt，内部可滚动，外部页面也可滚动
 
-                // 字体大小调整
-                字体调整视图(字体大小: $视图模型.字体大小)
-
                 // JS测试面板
                 脚本测试面板(编辑器视图模型: 视图模型, 测试视图模型: 测试视图模型)
             }
@@ -153,6 +150,51 @@ struct 工具栏视图: View {
                 工具按钮(标题: "检查", 图标: "checkmark.shield", 颜色: .red) {
                     视图模型.执行静态检查()
                 }
+                // 字体大小按键（点击循环切换常用字号，自动记忆）
+                Button(action: {
+                    let 常用字号: [CGFloat] = [10, 12, 14, 16, 18, 20, 24]
+                    if let 当前索引 = 常用字号.firstIndex(of: 视图模型.字体大小) {
+                        let 下一个索引 = (当前索引 + 1) % 常用字号.count
+                        视图模型.设置字体大小(常用字号[下一个索引])
+                    } else {
+                        视图模型.设置字体大小(14)
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "textformat.size")
+                            .font(.system(size: 14)) // 14pt图标，与文字对齐
+                        Text("\(Int(视图模型.字体大小))")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.teal)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Color.teal.opacity(0.12)) // 淡青色背景，标识字体设置
+                    .cornerRadius(8)
+                }
+                // 一键删除代码按钮（字体大小键右边）
+                Button(action: {
+                    视图模型.清空代码()
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 14)) // 14pt图标
+                        .foregroundColor(.red)
+                        .frame(width: 36, height: 36) // 36pt正方形按钮，紧凑布局
+                        .background(Color.red.opacity(0.12)) // 淡红色背景
+                        .cornerRadius(8)
+                }
+                // 一键复制代码按钮（字体大小键右边）
+                Button(action: {
+                    视图模型.复制代码()
+                }) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 14)) // 14pt图标
+                        .foregroundColor(.blue)
+                        .frame(width: 36, height: 36) // 36pt正方形按钮，紧凑布局
+                        .background(Color.blue.opacity(0.12)) // 淡蓝色背景
+                        .cornerRadius(8)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -245,29 +287,6 @@ struct 静态检查结果视图: View {
         }
         .padding(12)
         .background(Color(.systemGray6))
-    }
-}
-
-// MARK: - 字体调整视图
-
-/// 编辑器字体大小调整
-struct 字体调整视图: View {
-    @Binding var 字体大小: CGFloat
-
-    var body: some View {
-        HStack {
-            Text("字体大小")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            Slider(value: $字体大小, in: 10...24, step: 1) // 10-24pt范围，1pt步进
-                .accentColor(.blue)
-            Text("\(Int(字体大小))pt")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .frame(width: 40) // 固定宽度40pt，对齐数字
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
     }
 }
 

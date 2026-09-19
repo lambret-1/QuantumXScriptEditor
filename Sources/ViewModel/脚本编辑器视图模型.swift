@@ -30,6 +30,8 @@ final class 脚本编辑器视图模型: ObservableObject {
 
     /// 脚本存储服务
     private let 存储: 脚本存储
+    /// UserDefaults存储键（字体大小）
+    private let 字体大小存储键 = "编辑器字体大小"
 
     /// 初始化
     /// - Parameters:
@@ -39,6 +41,28 @@ final class 脚本编辑器视图模型: ObservableObject {
         self.脚本 = 脚本
         self.存储 = 存储
         self.重命名输入 = 脚本.名称
+        // 启动时从UserDefaults读取用户上次使用的字体大小
+        let 保存的字号 = UserDefaults.standard.double(forKey: 字体大小存储键)
+        if 保存的字号 > 0 {
+            self.字体大小 = CGFloat(保存的字号)
+        }
+    }
+
+    /// 设置字体大小并持久化到UserDefaults（自动记忆用户上次使用的字号）
+    /// - Parameter 新字号: 新的字体大小
+    func 设置字体大小(_ 新字号: CGFloat) {
+        字体大小 = 新字号
+        UserDefaults.standard.set(Double(新字号), forKey: 字体大小存储键)
+    }
+
+    /// 清空代码内容（一键删除）
+    func 清空代码() {
+        脚本.内容 = ""
+    }
+
+    /// 复制代码到剪贴板（一键复制）
+    func 复制代码() {
+        UIPasteboard.general.string = 脚本.内容
     }
 
     /// 保存脚本到本地
