@@ -5,7 +5,6 @@ import SwiftUI
 enum 测试面板弹窗类型: String, Identifiable {
     case 网址管理 = "网址管理"
     case 环境管理 = "环境管理"
-    case 分享输出 = "分享输出"
     var id: String { rawValue }
 }
 
@@ -140,10 +139,10 @@ final class 脚本测试视图模型: ObservableObject {
         return 测试输出.components(separatedBy: .newlines).count
     }
 
-    /// 分享测试输出（通过系统分享面板）
+    /// 分享测试输出（直接弹出系统分享面板，无中间窗口）
     func 分享输出() {
         guard !测试输出.isEmpty else { return }
-        当前弹窗 = .分享输出
+        分享服务.分享文本(文本: 测试输出)
     }
 
     /// 应用选中的测试环境

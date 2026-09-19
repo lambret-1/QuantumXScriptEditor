@@ -21,8 +21,6 @@ struct 脚本列表页: View {
     @State private var 检测更新中 = false
     /// 是否显示更新检测中弹窗
     @State private var 显示检测中弹窗 = false
-    /// 要分享的文件URL（IPA或脚本文件，iOS14兼容：单sheet+可选URL，避免多sheet并列bug）
-    @State private var 分享URL: URL?
     // MARK: - 长按上下文菜单状态
     /// 长按选中的脚本
     @State private var 长按选中脚本: 脚本模型?
@@ -56,10 +54,11 @@ struct 脚本列表页: View {
                                 }) {
                                     Label("重命名", systemImage: "pencil")
                                 }
-                                // 分享
+                                // 分享（直接弹出系统分享面板，无中间窗口）
                                 Button(action: {
-                                    长按选中脚本 = 脚本
-                                    分享URL = 视图模型.存储.获取脚本文件URL(脚本)
+                                    if let 文件URL = 视图模型.存储.获取脚本文件URL(脚本) {
+                                        分享服务.分享文件(文件URL: 文件URL)
+                                    }
                                 }) {
                                     Label("分享", systemImage: "square.and.arrow.up")
                                 }
@@ -134,13 +133,6 @@ struct 脚本列表页: View {
         .overlay(新建脚本弹窗覆盖层)
         // 更新检测弹窗覆盖层
         .overlay(更新弹窗覆盖层)
-        // iOS14兼容：单sheet+可选URL，避免多sheet并列时只有一个能弹出的bug
-        .sheet(item: $分享URL) { 文件URL in
-            分享面板视图(文件URL: 文件URL) {
-                分享URL = nil
-            }
-            .background(透明背景()) // 透明背景，只显示系统分享面板
-        }
         // 重命名弹窗覆盖层
         .overlay(重命名弹窗覆盖层)
         // 删除确认弹窗覆盖层
@@ -208,7 +200,8 @@ struct 脚本列表页: View {
                     显示更新弹窗 = false
                 }, 下载完成回调: { 文件URL in
                     显示更新弹窗 = false
-                    分享URL = 文件URL
+                    // 下载完成后直接弹出系统分享面板，无中间窗口
+                    分享服务.分享文件(文件URL: 文件URL)
                 })
             } else if 显示无更新弹窗 {
                 无更新提示弹窗 {

@@ -69,6 +69,18 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.1.0
+- 彻底修复更新下载完成后弹出接近满屏多余窗口的问题：
+  - 完全移除 `分享面板视图`、`分享文本视图` 两个 `UIViewControllerRepresentable` 封装及其内部的 `分享面板容器控制器`、`文本分享容器控制器`
+  - 移除脚本列表页的 `.sheet(item: $分享URL)` 和 `分享URL` 状态变量
+  - 移除测试面板弹窗枚举中的 `.分享输出` case 和对应的 sheet
+  - 新增纯静态 `分享服务` 枚举，提供 `分享文件(文件URL:)` 和 `分享文本(文本:)` 两个方法
+  - `分享服务` 直接获取当前最顶层视图控制器（递归沿 presentedViewController 链查找），从顶层直接 present `UIActivityViewController`，无任何中间容器
+  - iOS14兼容：使用 `connectedScenes` + `UIWindowScene` 获取 keyWindow，不使用已废弃的 `UIApplication.shared.keyWindow`
+  - iPad适配：设置 `popoverPresentationController` 的 sourceView/sourceRect 从屏幕中间弹出
+  - 所有分享入口（脚本长按分享、IPA下载完成分享、测试输出分享）均改为直接调用 `分享服务`
+- 涉及文件：分享面板视图.swift（完全重写）、脚本列表页.swift、脚本测试面板.swift、脚本测试视图模型.swift
+
 ### v1.0.9
 - 学习圈X官网JS脚本规范，全面完善沙箱与代码模板：
   - 沙箱新增注入圈X原生API：`$task.fetch`（Promise风格网络请求）、`$prefs.setValueForKey/valueForKey`（持久化存储）、`$notify(title,subtitle,message,options)`（通知弹窗）
