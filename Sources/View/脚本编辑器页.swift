@@ -8,6 +8,8 @@ struct 脚本编辑器页: View {
     @StateObject private var 测试视图模型 = 脚本测试视图模型()
     /// 是否使用自定义代码键盘（默认false，使用系统键盘）
     @State private var 使用代码键盘 = false
+    /// 是否显示智能分析弹窗
+    @State private var 显示智能分析 = false
 
     init(脚本: 脚本模型, 存储: 脚本存储) {
         _视图模型 = StateObject(wrappedValue: 脚本编辑器视图模型(脚本: 脚本, 存储: 存储))
@@ -17,7 +19,7 @@ struct 脚本编辑器页: View {
         ScrollView {
             VStack(spacing: 0) {
                 // 顶部工具栏
-                工具栏视图(视图模型: 视图模型, 使用代码键盘: $使用代码键盘)
+                工具栏视图(视图模型: 视图模型, 使用代码键盘: $使用代码键盘, 显示智能分析: $显示智能分析)
 
                 // 保存/格式化提示条
                 if let 提示 = 视图模型.保存提示 {
@@ -59,6 +61,8 @@ struct 脚本编辑器页: View {
         }
         // 重命名输入覆盖层（iOS14 Alert不支持TextField，使用自定义覆盖层）
         .overlay(重命名覆盖层)
+        // 智能分析弹窗覆盖层
+        .overlay(智能分析覆盖层)
     }
 
     /// 重命名输入弹窗覆盖层
@@ -75,6 +79,27 @@ struct 脚本编辑器页: View {
             }
         }
     }
+
+    /// 智能分析弹窗覆盖层
+    private var 智能分析覆盖层: some View {
+        Group {
+            if 显示智能分析 {
+                智能分析弹窗(
+                    插入回调: { 模板代码 in
+                        // 将生成的模板追加到代码区末尾
+                        if 视图模型.脚本.内容.isEmpty {
+                            视图模型.脚本.内容 = 模板代码
+                        } else {
+                            视图模型.脚本.内容 += "\n\n" + 模板代码
+                        }
+                    },
+                    关闭回调: {
+                        显示智能分析 = false
+                    }
+                )
+            }
+        }
+    }
 }
 
 // MARK: - 工具栏视图
@@ -84,6 +109,8 @@ struct 工具栏视图: View {
     @ObservedObject var 视图模型: 脚本编辑器视图模型
     /// 是否使用自定义代码键盘绑定
     @Binding var 使用代码键盘: Bool
+    /// 是否显示智能分析弹窗绑定
+    @Binding var 显示智能分析: Bool
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -113,6 +140,9 @@ struct 工具栏视图: View {
                 }
                 工具按钮(标题: "补全", 图标: "textformat", 颜色: .orange) {
                     视图模型.显示补全弹窗 = true
+                }
+                工具按钮(标题: "获取信息", 图标: "wand.and.stars", 颜色: Color(UIColor.systemPurple)) {
+                    显示智能分析 = true
                 }
                 工具按钮(标题: "格式化", 图标: "text.alignleft", 颜色: .green) {
                     视图模型.执行格式化()
