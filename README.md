@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.4.0
+- 修复代码编辑器输入时屏幕乱跳bug：
+  - 【根本原因】textViewDidChange中每次输入都重新设置attributedText导致UITextView重新布局，同时SwiftUI绑定触发updateUIView二次刷新，两者共同造成滚动位置跳动
+  - 【修复1】textViewDidChange中保存当前contentOffset，重新设置attributedText后恢复，确保滚动位置不变
+  - 【修复2】新增正在编辑标志位，编辑过程中（textViewDidBeginEditing到textViewDidEndEditing）跳过updateUIView中的外部文本同步，防止二次刷新
+  - 【修复3】textViewDidChange结束后异步重置标志位，确保当前runloop完成后才允许外部同步
+  - 涉及文件：带行号编辑器.swift
+
 ### v1.3.9
 - 智能分析模板优化与字段名统一：
   - 【智能分析综合模板重写】置顶的"全部导入"综合模板改为IIFE包裹+function封装+每一步详细log（$response确认、Body长度+前100字符预览、JSON确认、函数入口/出口、顶层字段列表），与内置代码模板风格统一

@@ -48,11 +48,15 @@ struct 带行号代码编辑器: UIViewRepresentable {
 
     func updateUIView(_ 容器: 代码编辑器容器视图, context: Context) {
         容器.文本视图.font = UIFont.monospacedSystemFont(ofSize: 字体大小, weight: .regular)
-        if 容器.文本视图.text != 文本 {
+        // 【关键修复】编辑过程中跳过外部文本同步，防止二次刷新导致屏幕乱跳
+        // textViewDidChange中已更新父视图绑定，此处无需再同步
+        if !context.coordinator.正在编辑 && 容器.文本视图.text != 文本 {
             let 选中范围 = 容器.文本视图.selectedRange
+            let 滚动偏移 = 容器.文本视图.contentOffset
             容器.文本视图.text = 文本
             容器.文本视图.attributedText = context.coordinator.高亮服务.高亮(文本: 文本)
             容器.文本视图.selectedRange = 选中范围
+            容器.文本视图.contentOffset = 滚动偏移
         }
         // 检测代码键盘开关变化，切换输入视图
         if 使用代码键盘 != 容器.使用代码键盘 {
@@ -80,6 +84,8 @@ final class 编辑器协调器: NSObject, UITextViewDelegate {
     let 高亮服务 = 语法高亮服务()
     /// 补全项选中回调（由容器注入）
     var 补全选中回调: ((代码补全项) -> Void)?
+    /// 【关键修复】正在编辑标志位，防止编辑过程中SwiftUI updateUIView二次刷新导致屏幕乱跳
+    var 正在编辑 = false
 
     init(父视图: 带行号代码编辑器) {
         self.父视图 = 父视图
@@ -87,15 +93,33 @@ final class 编辑器协调器: NSObject, UITextViewDelegate {
 
     /// 文本变化时更新绑定、重新高亮、刷新行号、更新补全候选
     func textViewDidChange(_ 文本视图: UITextView) {
+        正在编辑 = true
+        // 【关键修复】保存当前滚动偏移和选中范围，重新设置attributedText后恢复，防止屏幕乱跳
         let 选中范围 = 文本视图.selectedRange
+        let 滚动偏移 = 文本视图.contentOffset
         文本视图.attributedText = 高亮服务.高亮(文本: 文本视图.text)
         文本视图.selectedRange = 选中范围
+        文本视图.contentOffset = 滚动偏移
         父视图.文本 = 文本视图.text
         // 刷新行号
         if let 容器 = 文本视图.superview as? 代码编辑器容器视图 {
             容器.行号控件.setNeedsDisplay()
             更新补全候选(文本视图, 容器: 容器)
         }
+        // 异步重置标志位，确保当前runloop完成后才允许外部同步
+        DispatchQueue.main.async { [weak self] in
+            self?.正在编辑 = false
+        }
+    }
+
+    /// 开始编辑时设置标志位
+    func textViewDidBeginEditing(_ 文本视图: UITextView) {
+        正在编辑 = true
+    }
+
+    /// 结束编辑时清除标志位
+    func textViewDidEndEditing(_ 文本视图: UITextView) {
+        正在编辑 = false
     }
 
     /// 滚动时刷新行号显示
