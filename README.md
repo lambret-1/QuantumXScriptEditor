@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.2.5
+- 修复获取缓存的JSON显示乱码问题：
+  - 【问题原因】很多服务器返回的JSON会把中文字符转义为\uXXXX格式（如\u66f4\u65b0=\u66f4\u65b0"更新"），直接显示为乱码
+  - 【解决方案】新增`解码Unicode转义`静态方法，用NSRegularExpression匹配所有\uXXXX序列并替换为实际Unicode字符（从后往前替换避免范围偏移）
+  - 【应用时机】获取真实响应体后自动解码，缓存解码后的响应体（解码后的JSON同样合法，脚本JSON.parse可正常解析）
+  - 【显示优化】响应体预览和输出均显示解码后的可读中文，输出提示"Unicode转义已解码为可读中文"
+  - 涉及文件：脚本测试视图模型.swift
+
 ### v1.2.4
 - 修复沙箱中console.log等函数报错"is not a function"的严重问题：
   - 【根本原因】@convention(block)闭包放入Swift字典[String: Any]后整体注入JavaScriptCore时，闭包被桥接为NSObject对象而非JS函数，导致调用时报"console.log is not a function. console.log is an instance of NSObject"

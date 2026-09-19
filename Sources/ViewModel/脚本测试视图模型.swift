@@ -175,14 +175,16 @@ final class 脚本测试视图模型: ObservableObject {
                     return
                 }
 
-                // 缓存响应体
-                自身.真实响应体 = 响应体文本
+                // 【中文友好】解码JSON中的Unicode转义序列（\uXXXX → 可读中文），避免显示乱码
+                let 解码后文本 = 脚本测试视图模型.解码Unicode转义(响应体文本)
+                // 缓存解码后的响应体（解码后的JSON同样合法，脚本可正常解析）
+                自身.真实响应体 = 解码后文本
                 自身.响应体来源网址 = 网址
 
-                自身.测试输出 += "✅ 获取成功！状态码\(http响应.statusCode)，响应体\(响应体文本.count)字符\n"
-                自身.测试输出 += "📦 响应体已缓存，执行脚本时将直接使用\n"
-                // 预览前200字符
-                let 预览 = 响应体文本.count > 200 ? String(响应体文本.prefix(200)) + "..." : 响应体文本
+                自身.测试输出 += "✅ 获取成功！状态码\(http响应.statusCode)，响应体\(解码后文本.count)字符\n"
+                自身.测试输出 += "📦 响应体已缓存（Unicode转义已解码为可读中文），执行脚本时将直接使用\n"
+                // 预览前200字符（解码后）
+                let 预览 = 解码后文本.count > 200 ? String(解码后文本.prefix(200)) + "..." : 解码后文本
                 自身.测试输出 += "[响应体预览]\n\(预览)\n"
             }
         }
@@ -202,6 +204,33 @@ final class 脚本测试视图模型: ObservableObject {
         当前网络任务?.cancel()
         当前网络任务 = nil
         正在获取响应体 = false
+    }
+
+    // MARK: - Unicode转义解码
+
+    /// 解码JSON字符串中的Unicode转义序列（\uXXXX → 实际Unicode字符）
+    /// 很多服务器返回的JSON会把中文字符转义为\uXXXX格式，此方法将其还原为可读中文
+    /// - Parameter 文本: 含Unicode转义的原始字符串
+    /// - Returns: 解码后的可读字符串
+    static func 解码Unicode转义(_ 文本: String) -> String {
+        var 结果 = 文本
+        // 匹配 \uXXXX 格式（X为十六进制字符）
+        guard let 正则 = try? NSRegularExpression(pattern: "\\\\u([0-9a-fA-F]{4})", options: []) else {
+            return 文本
+        }
+        let 完整范围 = NSRange(结果.startIndex..., in: 结果)
+        // 从后往前替换，避免替换后范围偏移
+        let 匹配列表 = 正则.matches(in: 结果, options: [], range: 完整范围).reversed()
+        for 匹配 in 匹配列表 {
+            guard let 转义范围 = Range(匹配.range, in: 结果),
+                  let 十六进制范围 = Range(匹配.range(at: 1), in: 结果) else { continue }
+            let 十六进制 = String(结果[十六进制范围])
+            if let 码点 = UInt32(十六进制, radix: 16),
+               let 字符 = UnicodeScalar(码点) {
+                结果.replaceSubrange(转义范围, with: String(Character(字符)))
+            }
+        }
+        return 结果
     }
 
     /// 停止当前执行
