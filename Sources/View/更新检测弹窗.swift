@@ -111,15 +111,12 @@ struct 更新检测弹窗: View {
                 }
             }
 
-            // 发布说明（可滚动）
+            // 发布说明（富文本，支持Markdown格式，可滚动）
             ScrollView {
-                Text(更新信息.发布说明)
-                    .font(.caption)
-                    .foregroundColor(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
+                富文本视图(文本: 更新信息.发布说明, 字体大小: 13)
+                    .frame(minHeight: 0) // 自适应内容高度
             }
-            .frame(maxHeight: 150) // 发布说明最大高度150pt，避免弹窗过高
+            .frame(maxHeight: 180) // 发布说明最大高度180pt，富文本需要更多空间
             .background(Color(UIColor.systemGray6))
             .cornerRadius(8)
 

@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.3.1
+- 更新窗口发布说明增加富文本显示：
+  - 【新增】发布说明从纯Text改为富文本视图，支持Markdown格式渲染
+  - 【支持格式】标题(#/##/###)、粗体(**text**)、斜体(*text*)、行内代码(`code`)、代码块(```)、无序列表(-/*)、有序列表(1.)、引用(>)、链接([text](url))、分割线(---)
+  - 【iOS14兼容】使用UITextView+NSAttributedString实现，不依赖iOS15+的SwiftUI Markdown支持
+  - 【新增文件】富文本视图.swift（包含富文本视图UIViewRepresentable和完整Markdown解析器）
+  - 涉及文件：富文本视图.swift（新增）、更新检测弹窗.swift
+
 ### v1.3.0
 - 修复iOS14上地址库和环境按钮点击无反应的bug：
   - 【根本原因】`.sheet(item:)`在iOS14上存在已知bug，枚举驱动的弹窗无法正常弹出，表现为按钮点击后无任何反应
