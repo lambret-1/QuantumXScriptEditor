@@ -151,7 +151,7 @@ final class 脚本测试视图模型: ObservableObject {
 
     // MARK: - 通用网络请求方法
 
-    /// 通用：真实请求目标网址获取响应体（自动解码Unicode转义）
+    /// 通用：真实请求目标网址获取响应体（自动完整解码所有JSON转义序列）
     /// - Parameters:
     ///   - 网址: 目标URL
     ///   - 方法: HTTP方法
@@ -182,8 +182,8 @@ final class 脚本测试视图模型: ObservableObject {
                     完成(.failure(NSError(domain: "测试错误", code: -2, userInfo: [NSLocalizedDescriptionKey: "响应体解析失败（可能是二进制数据）"])))
                     return
                 }
-                // 解码Unicode转义为可读中文
-                let 解码后文本 = 脚本测试视图模型.解码Unicode转义(响应体文本)
+                // 完整解码所有JSON转义序列（\uXXXX中文 + \" \\ \/ \n \r \t等）
+                let 解码后文本 = 脚本测试视图模型.解码JSON转义(响应体文本)
                 完成(.success(解码后文本))
             }
         }
@@ -245,29 +245,55 @@ final class 脚本测试视图模型: ObservableObject {
         正在获取响应体 = false
     }
 
-    // MARK: - Unicode转义解码
+    // MARK: - JSON转义解码
 
-    /// 解码JSON字符串中的Unicode转义序列（\uXXXX → 实际Unicode字符）
-    /// 很多服务器返回的JSON会把中文字符转义为\uXXXX格式，此方法将其还原为可读中文
-    /// - Parameter 文本: 含Unicode转义的原始字符串
-    /// - Returns: 解码后的可读字符串
-    static func 解码Unicode转义(_ 文本: String) -> String {
+    /// 完整解码JSON字符串中的所有转义序列（包括\uXXXX和其他标准转义）
+    /// 处理范围：\uXXXX(Unicode)、\"(双引号)、\\(反斜杠)、\/(正斜杠)、\n(换行)、\r(回车)、\t(制表符)、\b(退格)、\f(换页)
+    /// 很多服务器返回的JSON会把中文和特殊字符转义，此方法将其全部还原为可读文本
+    /// - Parameter 文本: 含JSON转义的原始字符串
+    /// - Returns: 完全解码后的可读字符串
+    static func 解码JSON转义(_ 文本: String) -> String {
         var 结果 = 文本
-        // 匹配 \uXXXX 格式（X为十六进制字符）
-        guard let 正则 = try? NSRegularExpression(pattern: "\\\\u([0-9a-fA-F]{4})", options: []) else {
+        // 统一匹配所有JSON转义序列：
+        // 第一捕获组：普通转义字符（\ " / b f n r t）
+        // 第二捕获组：\u后面的4位十六进制数字
+        let 模式 = "\\\\(?:([\\\\\"/bfnrt])|u([0-9a-fA-F]{4}))"
+        guard let 正则 = try? NSRegularExpression(pattern: 模式, options: []) else {
             return 文本
         }
         let 完整范围 = NSRange(结果.startIndex..., in: 结果)
         // 从后往前替换，避免替换后范围偏移
         let 匹配列表 = 正则.matches(in: 结果, options: [], range: 完整范围).reversed()
         for 匹配 in 匹配列表 {
-            guard let 转义范围 = Range(匹配.range, in: 结果),
-                  let 十六进制范围 = Range(匹配.range(at: 1), in: 结果) else { continue }
-            let 十六进制 = String(结果[十六进制范围])
-            if let 码点 = UInt32(十六进制, radix: 16),
-               let 字符 = UnicodeScalar(码点) {
-                结果.replaceSubrange(转义范围, with: String(Character(字符)))
+            guard let 转义范围 = Range(匹配.range, in: 结果) else { continue }
+            var 替换字符 = ""
+            // 判断是普通转义还是\u转义
+            if let 普通范围 = Range(匹配.range(at: 1), in: 结果) {
+                let 类型 = String(结果[普通范围])
+                switch 类型 {
+                case "\\": 替换字符 = "\\"       // 反斜杠
+                case "\"": 替换字符 = "\""       // 双引号
+                case "/": 替换字符 = "/"          // 正斜杠
+                case "b": 替换字符 = "\u{0008}"  // 退格
+                case "f": 替换字符 = "\u{000C}"  // 换页
+                case "n": 替换字符 = "\n"         // 换行
+                case "r": 替换字符 = "\r"         // 回车
+                case "t": 替换字符 = "\t"         // 制表符
+                default: continue
+                }
+            } else if let 十六进制范围 = Range(匹配.range(at: 2), in: 结果) {
+                // \uXXXX Unicode转义
+                let 十六进制 = String(结果[十六进制范围])
+                if let 码点 = UInt32(十六进制, radix: 16),
+                   let 字符 = UnicodeScalar(码点) {
+                    替换字符 = String(Character(字符))
+                } else {
+                    continue
+                }
+            } else {
+                continue
             }
+            结果.replaceSubrange(转义范围, with: 替换字符)
         }
         return 结果
     }
