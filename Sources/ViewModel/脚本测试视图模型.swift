@@ -99,6 +99,12 @@ final class 脚本测试视图模型: ObservableObject {
             测试输出 = "❌ 错误：网址格式无效，请输入以 http:// 或 https:// 开头的完整网址\n"
             return
         }
+        // 检查脚本内容是否为空（去除空白后），为空则不执行，避免显示无意义的默认响应体
+        let 清理后脚本 = 脚本内容.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !清理后脚本.isEmpty else {
+            测试输出 = "⚠️ 请先在编辑器中输入脚本代码，再运行测试\n"
+            return
+        }
 
         正在执行 = true
         测试输出 = ""
