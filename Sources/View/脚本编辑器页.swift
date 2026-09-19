@@ -38,6 +38,9 @@ struct 脚本编辑器页: View {
                 带行号代码编辑器(文本: $视图模型.脚本.内容, 字体大小: 视图模型.字体大小, 使用代码键盘: $使用代码键盘)
                     .frame(height: 420) // 编辑器固定高度420pt，内部可滚动，外部页面也可滚动
 
+                // 编辑器操作栏：字体缩小/增大 + 一键删除 + 一键复制
+                编辑器操作栏视图(视图模型: 视图模型)
+
                 // JS测试面板
                 脚本测试面板(编辑器视图模型: 视图模型, 测试视图模型: 测试视图模型)
             }
@@ -150,56 +153,114 @@ struct 工具栏视图: View {
                 工具按钮(标题: "检查", 图标: "checkmark.shield", 颜色: .red) {
                     视图模型.执行静态检查()
                 }
-                // 字体大小按键（点击循环切换常用字号，自动记忆）
-                Button(action: {
-                    let 常用字号: [CGFloat] = [10, 12, 14, 16, 18, 20, 24]
-                    if let 当前索引 = 常用字号.firstIndex(of: 视图模型.字体大小) {
-                        let 下一个索引 = (当前索引 + 1) % 常用字号.count
-                        视图模型.设置字体大小(常用字号[下一个索引])
-                    } else {
-                        视图模型.设置字体大小(14)
-                    }
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "textformat.size")
-                            .font(.system(size: 14)) // 14pt图标，与文字对齐
-                        Text("\(Int(视图模型.字体大小))")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                    }
-                    .foregroundColor(Color(UIColor.systemTeal))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(Color(UIColor.systemTeal).opacity(0.12)) // 淡青色背景，标识字体设置
-                    .cornerRadius(8)
-                }
-                // 一键删除代码按钮（字体大小键右边）
-                Button(action: {
-                    视图模型.清空代码()
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 14)) // 14pt图标
-                        .foregroundColor(.red)
-                        .frame(width: 36, height: 36) // 36pt正方形按钮，紧凑布局
-                        .background(Color.red.opacity(0.12)) // 淡红色背景
-                        .cornerRadius(8)
-                }
-                // 一键复制代码按钮（字体大小键右边）
-                Button(action: {
-                    视图模型.复制代码()
-                }) {
-                    Image(systemName: "doc.on.doc")
-                        .font(.system(size: 14)) // 14pt图标
-                        .foregroundColor(.blue)
-                        .frame(width: 36, height: 36) // 36pt正方形按钮，紧凑布局
-                        .background(Color.blue.opacity(0.12)) // 淡蓝色背景
-                        .cornerRadius(8)
-                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
         .background(Color(.systemGray6))
+    }
+}
+
+// MARK: - 编辑器操作栏视图
+
+/// 编辑器下方操作栏：字体缩小/增大 + 一键删除 + 一键复制
+struct 编辑器操作栏视图: View {
+    @ObservedObject var 视图模型: 脚本编辑器视图模型
+    /// 可用字号列表（从小到大）
+    private let 可用字号: [CGFloat] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24]
+
+    var body: some View {
+        HStack(spacing: 10) {
+            // 字体缩小按钮（A-）
+            Button(action: {
+                if let 当前索引 = 可用字号.firstIndex(of: 视图模型.字体大小), 当前索引 > 0 {
+                    视图模型.设置字体大小(可用字号[当前索引 - 1])
+                } else if 视图模型.字体大小 > 可用字号.first! {
+                    视图模型.设置字体大小(max(可用字号.first!, 视图模型.字体大小 - 1))
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "textformat.size")
+                        .font(.system(size: 12)) // 12pt小图标
+                    Text("A-")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                .foregroundColor(Color(UIColor.systemTeal))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color(UIColor.systemTeal).opacity(0.12)) // 淡青色背景
+                .cornerRadius(8)
+            }
+            .disabled(视图模型.字体大小 <= 可用字号.first!)
+
+            // 当前字号显示
+            Text("\(Int(视图模型.字体大小))pt")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(width: 44) // 固定宽度44pt，对齐数字
+
+            // 字体增大按钮（A+）
+            Button(action: {
+                if let 当前索引 = 可用字号.firstIndex(of: 视图模型.字体大小), 当前索引 < 可用字号.count - 1 {
+                    视图模型.设置字体大小(可用字号[当前索引 + 1])
+                } else if 视图模型.字体大小 < 可用字号.last! {
+                    视图模型.设置字体大小(min(可用字号.last!, 视图模型.字体大小 + 1))
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Text("A+")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Image(systemName: "textformat.size")
+                        .font(.system(size: 14)) // 14pt大图标
+                }
+                .foregroundColor(Color(UIColor.systemTeal))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color(UIColor.systemTeal).opacity(0.12)) // 淡青色背景
+                .cornerRadius(8)
+            }
+            .disabled(视图模型.字体大小 >= 可用字号.last!)
+
+            // 一键删除按钮
+            Button(action: {
+                视图模型.清空代码()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 14)) // 14pt图标
+                    Text("删除")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                .foregroundColor(.red)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color.red.opacity(0.12)) // 淡红色背景
+                .cornerRadius(8)
+            }
+
+            // 一键复制按钮
+            Button(action: {
+                视图模型.复制代码()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 14)) // 14pt图标
+                    Text("复制")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                }
+                .foregroundColor(.blue)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .background(Color.blue.opacity(0.12)) // 淡蓝色背景
+                .cornerRadius(8)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 }
 
