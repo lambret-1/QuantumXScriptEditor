@@ -298,7 +298,8 @@ struct 无更新提示弹窗: View {
         ZStack {
             Color.black.opacity(0.4)
                 .edgesIgnoringSafeArea(.all)
-                .onTapGesture { 关闭回调?() }
+                .contentShape(Rectangle()) // 确保整个背景可点击
+                .onTapGesture { 立即关闭() }
 
             VStack(spacing: 14) {
                 Image(systemName: "checkmark.circle.fill")
@@ -309,14 +310,20 @@ struct 无更新提示弹窗: View {
                 Text("当前版本 v\(App更新服务.当前版本号)")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Button("确定") {
-                    关闭回调?()
+                // 【关键修复】使用明确的Button action + PlainButtonStyle，避免iOS14默认按钮样式导致的点击延迟
+                Button(action: {
+                    立即关闭()
+                }) {
+                    Text("确定")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .cornerRadius(10)
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(Color.blue)
-                .cornerRadius(10)
+                .buttonStyle(PlainButtonStyle()) // iOS14兼容：去除默认按钮样式，确保点击立即响应
                 .padding(.top, 6)
             }
             .padding(20)
@@ -324,5 +331,11 @@ struct 无更新提示弹窗: View {
             .cornerRadius(16)
             .padding(.horizontal, 60)
         }
+        .transition(.opacity) // 快速淡入淡出，避免默认动画延迟
+    }
+
+    /// 立即关闭弹窗（确保在主线程同步执行，无延迟）
+    private func 立即关闭() {
+        关闭回调?()
     }
 }

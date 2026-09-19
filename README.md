@@ -69,6 +69,24 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.0.9
+- 学习圈X官网JS脚本规范，全面完善沙箱与代码模板：
+  - 沙箱新增注入圈X原生API：`$task.fetch`（Promise风格网络请求）、`$prefs.setValueForKey/valueForKey`（持久化存储）、`$notify(title,subtitle,message,options)`（通知弹窗）
+  - 沙箱同时兼容注入Surge API：`$httpClient.get/post`、`$persistentStore.write/read`，跨平台脚本均可运行
+  - 模板库3个模板从Surge API改为圈X原生API：GET请求`$httpClient.get`→`$task.fetch`、POST请求`$httpClient.post`→`$task.fetch`、持久化`$persistentStore`→`$prefs`
+  - 新增「运行环境检测」模板：判断圈X/Surge/Node环境，提供跨平台通知和网络请求封装
+  - 新增「通知弹窗带链接」模板：`$notify`第四个参数`{"open-url": "..."}`实现点击跳转
+  - 代码补全新增`$prefs.setValueForKey`/`$prefs.valueForKey`/`$notify带链接`/`环境检测`4项
+  - 代码补全标注`$httpClient`/`$persistentStore`为Surge API，提示圈X用户使用原生API
+- 修复更新窗口"已是最新版本"确认按钮点击后延迟很久才能关闭的问题：
+  - `无更新提示弹窗`改用明确Button(action:) + PlainButtonStyle，避免iOS14默认按钮样式延迟
+  - `更新弹窗覆盖层`添加`.animation(nil)`禁用弹窗动画，确保点击后立即关闭
+  - 按钮添加`.transition(.opacity)`快速淡入淡出
+- 修复iOS弹窗有多余空白窗口跟随的问题：
+  - 分享面板容器控制器（文件分享+文本分享）设置`modalPresentationStyle = .overFullScreen`，消除sheet卡片背景残留
+  - `completionWithItemsHandler`中先回调SwiftUI关闭sheet，再立即dismiss容器自身，避免透明空白窗口残留
+- 涉及文件：脚本沙箱服务.swift、圈X代码模板.swift、代码补全服务.swift、更新检测弹窗.swift、脚本列表页.swift、分享面板视图.swift
+
 ### v1.0.8
 - 修复圈X控制台写法错误：所有模板中`$console.log`改为圈X标准写法`console.log`（圈X中console前面无需加$）
 - 沙箱服务同时注入`console`和`$console`两个对象，新老写法均兼容

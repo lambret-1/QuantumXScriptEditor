@@ -30,6 +30,17 @@ final class 分享面板容器控制器: UIViewController {
     /// 是否已弹出分享面板（防止重复弹出）
     private var 已弹出 = false
 
+    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+        // 【关键修复】设置为overFullScreen，避免sheet卡片背景在活动视图消失后留下空白窗口
+        modalPresentationStyle = .overFullScreen
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        modalPresentationStyle = .overFullScreen
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear // 透明背景，只显示系统分享面板
@@ -42,8 +53,12 @@ final class 分享面板容器控制器: UIViewController {
 
         let 活动视图控制器 = UIActivityViewController(activityItems: [文件URL], applicationActivities: nil)
         活动视图控制器.completionWithItemsHandler = { [weak self] _, _, _, _ in
+            // 先回调让SwiftUI更新状态关闭sheet
             self?.完成回调?()
-            self?.dismiss(animated: true)
+            // 【关键修复】活动视图消失后，立即dismiss容器自身，避免透明空白窗口残留
+            DispatchQueue.main.async {
+                self?.dismiss(animated: false)
+            }
         }
 
         // iPad适配：从中间弹出
@@ -87,6 +102,17 @@ final class 文本分享容器控制器: UIViewController {
     /// 是否已弹出分享面板（防止重复弹出）
     private var 已弹出 = false
 
+    override init(nibName nibNameOrNil: String?, bundle nibBundleOrNil: Bundle?) {
+        super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
+        // 【关键修复】设置为overFullScreen，避免sheet卡片背景在活动视图消失后留下空白窗口
+        modalPresentationStyle = .overFullScreen
+    }
+
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        modalPresentationStyle = .overFullScreen
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .clear // 透明背景，只显示系统分享面板
@@ -99,8 +125,12 @@ final class 文本分享容器控制器: UIViewController {
 
         let 活动视图控制器 = UIActivityViewController(activityItems: [文本], applicationActivities: nil)
         活动视图控制器.completionWithItemsHandler = { [weak self] _, _, _, _ in
+            // 先回调让SwiftUI更新状态关闭sheet
             self?.完成回调?()
-            self?.dismiss(animated: true)
+            // 【关键修复】活动视图消失后，立即dismiss容器自身，避免透明空白窗口残留
+            DispatchQueue.main.async {
+                self?.dismiss(animated: false)
+            }
         }
 
         // iPad适配：从中间弹出

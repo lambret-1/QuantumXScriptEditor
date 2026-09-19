@@ -2,7 +2,9 @@ import Foundation
 import JavaScriptCore
 
 /// JS沙箱服务，模拟圈X运行环境供本地脚本测试
-/// 模拟对象：$request / $response / $notify / $persistentStore / $httpClient.get/post / $done
+/// 模拟对象：$request / $response / $done / $notify / console.log
+/// 圈X原生API：$task.fetch（Promise风格网络请求）/ $prefs（持久化存储）
+/// 兼容Surge API：$httpClient.get/post / $persistentStore.write/read
 /// 支持真实网络请求，带执行超时保护，支持中途停止，输出完整响应体
 /// ⚠️ 沙箱环境不等于圈X真实运行环境，仅用于本地预调试
 final class 脚本沙箱服务 {
@@ -279,6 +281,108 @@ final class 脚本沙箱服务 {
         上下文.setObject(控制台对象, forKeyedSubscript: "console" as NSString)
         // 兼容旧写法 $console.log（同时注入，避免旧脚本报错）
         上下文.setObject(控制台对象, forKeyedSubscript: "$console" as NSString)
+
+        // 注入 $prefs 对象（圈X原生持久化存储API）
+        // 圈X使用 $prefs.setValueForKey(value, key) / $prefs.valueForKey(key)
+        // 注意：不是 $persistentStore（那是Surge的API）
+        let 持久化前缀 = "圈X沙箱_"
+        let 设置值函数: @convention(block) (String, String) -> Void = { 值, 键 in
+            UserDefaults.standard.set(值, forKey: "\(持久化前缀)\(键)")
+        }
+        let 获取值函数: @convention(block) (String) -> String? = { 键 in
+            UserDefaults.standard.string(forKey: "\(持久化前缀)\(键)")
+        }
+        let 持久化对象: [String: Any] = [
+            "setValueForKey": 设置值函数,
+            "valueForKey": 获取值函数
+        ]
+        上下文.setObject(持久化对象, forKeyedSubscript: "$prefs" as NSString)
+        // 兼容Surge写法 $persistentStore（同时注入，避免跨平台脚本报错）
+        let surge写入函数: @convention(block) (String, String) -> Void = { 值, 键 in
+            UserDefaults.standard.set(值, forKey: "\(持久化前缀)\(键)")
+        }
+        let surge读取函数: @convention(block) (String) -> String? = { 键 in
+            UserDefaults.standard.string(forKey: "\(持久化前缀)\(键)")
+        }
+        let surge持久化对象: [String: Any] = [
+            "write": surge写入函数,
+            "read": surge读取函数
+        ]
+        上下文.setObject(surge持久化对象, forKeyedSubscript: "$persistentStore" as NSString)
+
+        // 注入 $notify 函数（圈X原生通知弹窗API，4个参数）
+        // 圈X使用 $notify(title, subtitle, message, options)
+        let 通知函数: @convention(block) (String, String, String, JSValue) -> Void = { [weak self] 标题, 副标题, 消息, _ in
+            self?.追加输出("[通知] \(标题) | \(副标题) | \(消息)\n")
+        }
+        上下文.setObject(通知函数, forKeyedSubscript: "$notify" as NSString)
+
+        // 注入 $task 对象（圈X原生网络请求API，Promise风格）
+        // 圈X使用 $task.fetch(options).then(response => {...}, reason => {...})
+        // 注意：不是 $httpClient（那是Surge的API）
+        // 先注入原生获取函数，再用JS包装为Promise
+        let 原生获取函数: @convention(block) (JSValue, JSValue) -> Void = { [weak self] 选项, 回调 in
+            guard let 自身 = self else { return }
+            // 解析选项（支持字符串URL或对象）
+            var 网址 = ""
+            var 方法 = "GET"
+            var 请求头: [String: String] = [:]
+            var 请求体 = ""
+            if 选项.isString {
+                网址 = 选项.toString() ?? ""
+            } else if 选项.isObject {
+                网址 = 选项.forProperty("url")?.toString() ?? ""
+                方法 = 选项.forProperty("method")?.toString() ?? "GET"
+                if let 头对象 = 选项.forProperty("headers"), 头对象.isObject {
+                    if let 属性 = 头对象.toDictionary() as? [String: String] {
+                        请求头 = 属性
+                    }
+                }
+                请求体 = 选项.forProperty("body")?.toString() ?? ""
+            }
+            guard !网址.isEmpty else {
+                回调.call(withArguments: [["error": "URL为空"], NSNull()])
+                return
+            }
+            自身.执行网络请求(网址: 网址, 方法: 方法, 请求头: 请求头, 请求体: 请求体) { 错误, 响应 in
+                if let 错误 = 错误 {
+                    回调.call(withArguments: [["error": 错误.localizedDescription], NSNull()])
+                } else {
+                    回调.call(withArguments: [NSNull(), 响应 ?? [:]])
+                }
+            }
+        }
+        上下文.setObject(原生获取函数, forKeyedSubscript: "$nativeFetch" as NSString)
+        // 用JS包装为Promise风格的$task.fetch
+        上下文.evaluateScript("""
+        var $task = {
+            fetch: function(options) {
+                return new Promise(function(resolve, reject) {
+                    $nativeFetch(options, function(error, response) {
+                        if (error) reject(error);
+                        else resolve(response);
+                    });
+                });
+            }
+        };
+        // 兼容Surge写法 $httpClient（同时注入get/post方法）
+        var $httpClient = {
+            get: function(options, callback) {
+                if (typeof options === 'string') options = {url: options};
+                options.method = 'GET';
+                $nativeFetch(options, function(error, response) {
+                    callback(error, response, response ? response.body : null);
+                });
+            },
+            post: function(options, callback) {
+                if (typeof options === 'string') options = {url: options};
+                options.method = 'POST';
+                $nativeFetch(options, function(error, response) {
+                    callback(error, response, response ? response.body : null);
+                });
+            }
+        };
+        """)
 
         追加输出("========== 开始执行脚本 ==========\n")
         追加输出("目标网址：\(目标网址)\n")

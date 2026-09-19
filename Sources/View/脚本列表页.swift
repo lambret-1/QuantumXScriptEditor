@@ -216,6 +216,7 @@ struct 脚本列表页: View {
                 }
             }
         }
+        .animation(nil) // 【关键修复】禁用弹窗动画，确保点击确定后立即关闭，无延迟
     }
 
     /// 新建脚本输入弹窗覆盖层（因为iOS14 Alert不支持TextField）

@@ -544,14 +544,14 @@ try {
 // ======================
 // 功能：发起GET异步请求并处理结果
 // 场景：脚本中调用第三方接口获取数据
+// 圈X原生API：$task.fetch（Promise风格）
+// 注意：不是$httpClient（那是Surge的API）
 // 容错等级：三级（空值保护/异常隔离/兜底返回）
 // ======================
-$httpClient.get("https://httpbin.org/get", {}, function(error, response) {
-    if (error) {
-        try { $notify("请求失败", "", String(error)); } catch (e) {}
-        $done();
-        return;
-    }
+$task.fetch({
+    url: "https://httpbin.org/get",
+    method: "GET"
+}).then(function(response) {
     // 【高级容错】安全解析响应JSON，解析失败则记录日志
     let data = {};
     try {
@@ -567,9 +567,13 @@ $httpClient.get("https://httpbin.org/get", {}, function(error, response) {
         console.log("[降级] 通知发送失败: " + 通知错误.message);
     }
     $done();
+}, function(reason) {
+    // 请求失败回调
+    try { $notify("请求失败", "", String(reason.error || reason)); } catch (e) {}
+    $done();
 });
 """,
-            用途说明: "使用$httpClient发起GET请求并在回调中处理（含容错）",
+            用途说明: "使用圈X原生$task.fetch发起GET请求，Promise风格处理（含容错）",
             使用场景: "脚本需要主动请求外部接口获取数据"
         ),
         圈X代码模板(
@@ -579,18 +583,17 @@ $httpClient.get("https://httpbin.org/get", {}, function(error, response) {
 // ======================
 // 功能：发起POST请求提交JSON数据
 // 场景：主动调用接口提交信息
+// 圈X原生API：$task.fetch（Promise风格）
+// 注意：不是$httpClient（那是Surge的API）
 // 容错等级：三级（空值保护/异常隔离/兜底返回）
 // ======================
 const postData = JSON.stringify({key: "value"});
-$httpClient.post("https://httpbin.org/post", {
+$task.fetch({
+    url: "https://httpbin.org/post",
+    method: "POST",
     headers: {"Content-Type": "application/json"},
     body: postData
-}, function(error, response) {
-    if (error) {
-        try { $notify("提交失败", "", String(error)); } catch (e) {}
-        $done();
-        return;
-    }
+}).then(function(response) {
     // 【高级容错】response.body可能很长，截断后通知
     let 响应摘要 = String(response.body || "");
     if (响应摘要.length > 200) {
@@ -602,9 +605,12 @@ $httpClient.post("https://httpbin.org/post", {
         console.log("[降级] 通知发送失败: " + 通知错误.message);
     }
     $done();
+}, function(reason) {
+    try { $notify("提交失败", "", String(reason.error || reason)); } catch (e) {}
+    $done();
 });
 """,
-            用途说明: "使用$httpClient发起POST请求，带请求头和请求体（含容错）",
+            用途说明: "使用圈X原生$task.fetch发起POST请求，带请求头和请求体（含容错）",
             使用场景: "需要主动提交数据到接口时使用"
         ),
 
@@ -614,19 +620,21 @@ $httpClient.post("https://httpbin.org/post", {
             分类: .存储通知,
             代码: """
 // ======================
-// 功能：使用$persistentStore持久化存储数据
+// 功能：使用$prefs持久化存储数据
 // 场景：保存计数器、配置等需要跨脚本运行保留的数据
+// 圈X原生API：$prefs.setValueForKey(value, key) / $prefs.valueForKey(key)
+// 注意：不是$persistentStore（那是Surge的API）
 // 容错等级：三级（空值保护/类型校验/兜底默认值）
 // ======================
 // 【基础容错】读取已保存的计数，不存在或非数字则默认为0
-let 存储值 = $persistentStore.read("运行次数");
+let 存储值 = $prefs.valueForKey("运行次数");
 let count = parseInt(存储值 || "0");
 if (isNaN(count)) {
     count = 0; // 【降级】存储值不是有效数字时重置为0
 }
 count = count + 1;
 // 写入新的计数值
-$persistentStore.write(String(count), "运行次数");
+$prefs.setValueForKey(String(count), "运行次数");
 try {
     $notify("运行统计", "", "本脚本已运行" + count + "次");
 } catch (通知错误) {
@@ -634,7 +642,7 @@ try {
 }
 $done();
 """,
-            用途说明: "使用$persistentStore读写持久化数据（含NaN容错）",
+            用途说明: "使用圈X原生$prefs读写持久化数据（含NaN容错）",
             使用场景: "保存运行次数、用户配置等跨运行保留的数据"
         ),
         圈X代码模板(
@@ -745,6 +753,88 @@ $done();
 """,
             用途说明: "提供时间戳转可读日期字符串的工具函数",
             使用场景: "接口返回的时间戳需要转为人类可读格式"
+        ),
+        圈X代码模板(
+            标题: "运行环境检测",
+            分类: .工具函数,
+            代码: """
+// ======================
+// 功能：检测当前脚本运行环境，编写跨平台兼容脚本
+// 场景：脚本需要同时支持圈X、Surge等多个平台
+// 圈X判断：typeof $task != "undefined"
+// Surge判断：typeof $httpClient != "undefined"
+// ======================
+const isRequest = typeof $request != "undefined";      // 是否为重写类型脚本
+const isQuanX = typeof $task != "undefined";            // 是否圈X环境
+const isSurge = typeof $httpClient != "undefined";      // 是否Surge环境
+const isNode = typeof require == "function" && !isJSBox; // 是否Node环境
+
+console.log("[环境检测] 重写类型: " + isRequest);
+console.log("[环境检测] 圈X: " + isQuanX);
+console.log("[环境检测] Surge: " + isSurge);
+console.log("[环境检测] Node: " + isNode);
+
+// 跨平台通知封装
+function 发送通知(标题, 副标题, 消息) {
+    if (isQuanX) {
+        $notify(标题, 副标题, 消息);
+    } else if (isSurge) {
+        $notification.post(标题, 副标题, 消息);
+    } else {
+        console.log(标题 + "\\n" + 副标题 + "\\n" + 消息);
+    }
+}
+
+// 跨平台网络请求封装
+function 发起请求(选项, 回调) {
+    if (isQuanX) {
+        // 圈X：$task.fetch Promise风格
+        $task.fetch(选项).then(function(response) {
+            回调(null, response, response.body);
+        }, function(reason) {
+            回调(reason, null, null);
+        });
+    } else if (isSurge) {
+        // Surge：$httpClient回调风格
+        if (选项.method === "POST") {
+            $httpClient.post(选项, 回调);
+        } else {
+            $httpClient.get(选项, 回调);
+        }
+    }
+}
+
+发送通知("环境检测", "", "当前环境: " + (isQuanX ? "圈X" : isSurge ? "Surge" : "其他"));
+$done();
+""",
+            用途说明: "检测运行环境并提供跨平台通知/请求封装，编写兼容圈X和Surge的脚本",
+            使用场景: "脚本需要在多个代理工具中运行时使用"
+        ),
+        圈X代码模板(
+            标题: "通知弹窗带链接",
+            分类: .存储通知,
+            代码: """
+// ======================
+// 功能：使用$notify弹出带跳转链接的通知
+// 场景：通知用户点击后跳转到指定网页
+// 圈X原生API：$notify(title, subtitle, message, {"open-url": "https://..."})
+// ======================
+// 第四个参数为选项对象，open-url指定点击通知后跳转的链接
+$notify(
+    "更新提醒",
+    "发现新版本 v2.0.0",
+    "点击查看更新详情",
+    {"open-url": "https://github.com/lambret-1/QuantumXScriptEditor/releases"}
+);
+
+// 不带链接的普通通知
+$notify("普通通知", "副标题", "消息内容");
+
+console.log("[通知] 已发送通知弹窗");
+$done();
+""",
+            用途说明: "使用圈X原生$notify弹出带open-url跳转链接的通知",
+            使用场景: "需要用户点击通知后跳转到指定页面时使用"
         )
     ]
 
