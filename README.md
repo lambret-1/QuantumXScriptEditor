@@ -69,6 +69,15 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.0.4
+- 修复脚本测试沙箱中"Return statements are only valid inside functions"语法错误
+- 根因：圈X真实运行时会将脚本包装在函数上下文中，允许顶层return语句；但App内JS沙箱直接evaluateScript在全局上下文执行，顶层return非法
+- 修复：沙箱执行前将用户代码包装在立即执行函数(IIFE) `(function() { ... })();` 中，与圈X环境完全一致
+- 修复：沙箱新增注入`$response`对象（含默认模拟响应体），响应修改类模板可正常测试
+- 修复：沙箱新增注入`$console`对象，模板中的`$console.log`调试输出可正常显示
+- 修复：所有模板中`const 原始响应体 = $response.body`改为`const 原始响应体 = ($response && $response.body) || ""`，在$response未定义时不会崩溃
+- 涉及文件：脚本沙箱服务.swift、圈X代码模板.swift、智能分析服务.swift、代码补全服务.swift
+
 ### v1.0.3
 - 全面检查并修复所有模板中的9处潜在错误：
   1. 修复"修改请求体（POST）"模板缺少JSON解析try-catch，请求体非JSON时会崩溃

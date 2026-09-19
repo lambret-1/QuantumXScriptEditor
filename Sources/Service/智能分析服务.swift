@@ -390,7 +390,7 @@ enum 智能分析服务 {
 // 通用响应修改模板（含四级容错）
 // 请根据实际接口结构修改下方代码
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
@@ -597,7 +597,7 @@ try {
 // 功能：解锁会员状态（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
@@ -639,7 +639,7 @@ $done({ body: JSON.stringify(body) });
 // 功能：会员永久有效（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
@@ -675,7 +675,7 @@ $done({ body: JSON.stringify(body) });
 // 功能：提升会员等级（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
@@ -698,7 +698,7 @@ $done({ body: JSON.stringify(body) });
 // 功能：去广告（删除识别到的广告字段，含四级容错）
 // 识别到\(字段路径列表.count)个广告字段
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
@@ -737,7 +737,7 @@ try {
 // 功能：去广告数组（从列表中过滤广告项，含四级容错）
 // 识别数组：\(数组路径)
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
@@ -788,7 +788,7 @@ try {
 // 功能：导出用户核心信息（含四级容错）
 // 识别到\(用户字段.count)项用户核心字段，通过通知弹窗展示
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
@@ -855,7 +855,7 @@ try {
 // 功能：隐私保护（隐藏手机号和邮箱，含四级容错）
 // 识别到\(隐私字段.count)个隐私字段，替换为星号掩码
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
@@ -884,7 +884,7 @@ try {
 // 功能：修改用户昵称（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
@@ -918,7 +918,7 @@ $done({ body: JSON.stringify(body) });
 // 功能：修改积分余额（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-const 原始响应体 = $response.body;
+const 原始响应体 = ($response && $response.body) || "";
 try {
     let body = {};
     try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }

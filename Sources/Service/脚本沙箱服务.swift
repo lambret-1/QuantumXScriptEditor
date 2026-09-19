@@ -204,7 +204,8 @@ final class 脚本沙箱服务 {
     ///   - 目标网址: 注入到 $request.url 的测试URL
     ///   - 请求头: 注入到 $request.headers 的请求头
     ///   - 请求方法: 注入到 $request.method 的HTTP方法
-    func 执行脚本(代码: String, 目标网址: String, 请求头: [String: String], 请求方法: String = "GET") {
+    ///   - 响应体: 注入到 $response.body 的模拟响应体，nil时使用默认模拟数据
+    func 执行脚本(代码: String, 目标网址: String, 请求头: [String: String], 请求方法: String = "GET", 响应体: String? = nil) {
         重置上下文()
         开始时间 = Date()
 
@@ -216,16 +217,39 @@ final class 脚本沙箱服务 {
         ]
         上下文.setObject(请求对象, forKeyedSubscript: "$request" as NSString)
 
+        // 注入 $response 对象（响应修改类脚本必需）
+        // 使用默认模拟响应体，包含常见字段结构，方便用户测试修改
+        let 模拟响应体 = 响应体 ?? "{\"code\":0,\"msg\":\"success\",\"data\":{\"isVip\":false,\"vipExpire\":\"2024-01-01\",\"vipLevel\":1}}"
+        let 响应对象: [String: Any] = [
+            "statusCode": 200,
+            "status": 200,
+            "headers": ["Content-Type": "application/json"],
+            "body": 模拟响应体
+        ]
+        上下文.setObject(响应对象, forKeyedSubscript: "$response" as NSString)
+
+        // 注入 $console 对象（部分脚本使用$console.log输出调试信息）
+        let 日志函数: @convention(block) (String) -> Void = { [weak self] 消息 in
+            self?.追加输出("[日志] \(消息)\n")
+        }
+        let 控制台对象: [String: Any] = ["log": 日志函数]
+        上下文.setObject(控制台对象, forKeyedSubscript: "$console" as NSString)
+
         追加输出("========== 开始执行脚本 ==========\n")
         追加输出("目标网址：\(目标网址)\n")
         追加输出("请求方法：\(请求方法)\n")
         if !请求头.isEmpty {
             追加输出("请求头：\(请求头.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))\n")
         }
+        追加输出("模拟响应体：\(模拟响应体)\n")
 
         // 超时保护：在后台队列执行，超时后提示
+        // 【关键修复】将用户代码包装在立即执行函数(IIFE)中，模拟圈X真实运行环境
+        // 圈X会将脚本注入函数上下文，因此模板中可以使用return语句提前退出
+        // 若不包装，顶层return会报"Return statements are only valid inside functions"错误
+        let 包装后代码 = "(function() {\n\(代码)\n})();"
         let 工作项 = DispatchWorkItem { [weak self] in
-            _ = self?.上下文.evaluateScript(代码)
+            _ = self?.上下文.evaluateScript(包装后代码)
         }
 
         // 超时监听
