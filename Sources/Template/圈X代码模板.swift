@@ -164,6 +164,7 @@ $done($request);
         console.log("❌ [错误] $response 未定义！请在圈X的 [rewrite_local] 里使用 script-response-body");
         $done({}); return;
     }
+    console.log("✅ [1.1] $response 对象存在");
 
     var body = $response.body;
     if (!body) {
@@ -171,6 +172,7 @@ $done($request);
         $done({}); return;
     }
     console.log("📦 [2] 成功获取 Body，长度: " + body.length);
+    console.log("🔍 [2.1] Body 前 100 字符: " + body.substring(0, 100));
 
     // 2. 快速判断是不是JSON（非JSON直接放行，不破坏页面）
     var contentType = $response.headers["Content-Type"] || "";
@@ -180,24 +182,41 @@ $done($request);
         console.log("⚠️ 非 JSON 响应（网页/图片等），直接放行");
         $done({}); return;
     }
+    console.log("✅ [2.2] 确认是 JSON 响应");
+
+    // ================= 核心修改函数 =================
+    function 修改会员字段(对象) {
+        console.log("👑 [3] 开始执行修改会员字段函数");
+        // 【空值保护】只检查一次，确保父级路径存在且为对象
+        if (!对象.data || typeof 对象.data !== "object" || Array.isArray(对象.data)) {
+            对象.data = {};
+            console.log("   [3.1] data 不存在或非对象，已初始化为空对象");
+        } else {
+            console.log("   [3.1] data 对象存在，包含字段: " + Object.keys(对象.data).join(", "));
+        }
+
+        // ====== 配置区：在这里修改需要的字段 ======
+        对象.data.isVip = 1;
+        console.log("   [3.2] isVip 已设为 1（会员状态）");
+        对象.data.vipExpire = String(对象.data.vipExpire || "2099-12-31");
+        console.log("   [3.3] vipExpire 已设为: " + 对象.data.vipExpire);
+        对象.data.vipLevel = 1;
+        console.log("   [3.4] vipLevel 已设为 1（会员等级）");
+        // ============================================
+
+        console.log("👑 [4] 修改会员字段函数执行完毕，共修改 3 个字段");
+        return 对象;
+    }
 
     try {
         var obj = JSON.parse(body);
-        console.log("✅ [3] JSON 解析成功");
+        console.log("✅ [5] JSON 解析成功，顶层字段: " + Object.keys(obj).join(", "));
 
-        // ================= 3. 修改字段 =================
-        // 【空值保护】只检查一次，确保父级路径存在且为对象
-        if (!obj.data || typeof obj.data !== "object" || Array.isArray(obj.data)) obj.data = {};
+        // 调用核心修改函数
+        obj = 修改会员字段(obj);
 
-        // ====== 配置区：在这里修改需要的字段 ======
-        obj.data.isVip = 1;                                                    // 会员状态设为1（圈X脚本中VIP状态用数字1表示）
-        obj.data.vipExpire = String(obj.data.vipExpire || "2099-12-31");     // 会员到期时间
-        obj.data.vipLevel = 1;                                                  // 会员等级
-        // ============================================
-        console.log("👑 [4] 字段修改完毕");
-
-        console.log("🎉 [5] 脚本执行成功！");
-        // 4. 把改好的对象重新"压回"文本字符串，调用$done返回
+        console.log("🎉 [6] 脚本执行成功！准备返回修改后的响应");
+        // 把改好的对象重新"压回"文本字符串，调用$done返回
         $done({ body: JSON.stringify(obj) });
     } catch (e) {
         console.log("❌ [异常] 解析失败：" + e + "，原样放行");
@@ -293,6 +312,7 @@ $done({ body: "{}", statusCode: 200 });
         console.log("❌ [错误] $response 未定义");
         $done({}); return;
     }
+    console.log("✅ [1.1] $response 对象存在");
 
     var body = $response.body;
     if (!body) {
@@ -300,6 +320,7 @@ $done({ body: "{}", statusCode: 200 });
         $done({}); return;
     }
     console.log("📦 [2] Body 长度: " + body.length);
+    console.log("🔍 [2.1] Body 前 100 字符: " + body.substring(0, 100));
 
     // 2. 判断是不是JSON
     var contentType = $response.headers["Content-Type"] || "";
@@ -309,12 +330,38 @@ $done({ body: "{}", statusCode: 200 });
         console.log("⚠️ 非 JSON 响应，直接放行");
         $done({}); return;
     }
+    console.log("✅ [2.2] 确认是 JSON 响应");
 
-    try {
-        var obj = JSON.parse(body);
-        console.log("✅ [3] JSON 解析成功");
+    // ================= 核心删除函数 =================
+    function 递归删除字段(对象, 路径) {
+        console.log("   [删除] 尝试删除路径: " + 路径);
+        if (!对象 || typeof 对象 !== "object") {
+            console.log("   [删除] 对象不存在或非对象，跳过");
+            return false;
+        }
+        var 部分 = String(路径).split(".");
+        var 当前 = 对象;
+        // 导航到父级路径
+        for (var i = 0; i < 部分.length - 1; i++) {
+            if (当前[部分[i]] === undefined || 当前[部分[i]] === null || typeof 当前[部分[i]] !== "object") {
+                console.log("   [删除] 路径中段不存在: " + 部分[i] + "，跳过");
+                return false;
+            }
+            当前 = 当前[部分[i]];
+        }
+        var 字段名 = 部分[部分.length - 1];
+        if (当前[字段名] !== undefined) {
+            delete 当前[字段名];
+            console.log("   [删除] 成功删除字段: " + 字段名);
+            return true;
+        } else {
+            console.log("   [删除] 字段不存在: " + 字段名 + "，无需删除");
+            return false;
+        }
+    }
 
-        // ================= 3. 删除广告字段 =================
+    function 执行去广告(对象) {
+        console.log("🧹 [3] 开始执行去广告函数");
         // ====== 配置区：要删除的广告字段路径 ======
         var 要删除的字段 = [
             "data.ad",           // 删除 data 下的 ad 字段
@@ -322,29 +369,29 @@ $done({ body: "{}", statusCode: 200 });
             "data.popup_ad"      // 删除 data 下的 popup_ad 弹窗广告
         ];
         // ==========================================
+        console.log("   [3.1] 配置了 " + 要删除的字段.length + " 个待删除字段路径");
 
-        // 递归删除指定路径的字段（带空值保护）
-        function 删除字段(对象, 路径) {
-            if (!对象 || typeof 对象 !== "object") return;
-            var 部分 = String(路径).split(".");
-            var 当前 = 对象;
-            for (var i = 0; i < 部分.length - 1; i++) {
-                if (当前[部分[i]] === undefined || 当前[部分[i]] === null || typeof 当前[部分[i]] !== "object") return;
-                当前 = 当前[部分[i]];
-            }
-            delete 当前[部分[部分.length - 1]];
-        }
-
+        var 成功计数 = 0;
         // 遍历删除所有配置的广告字段（单个失败不影响其他）
         要删除的字段.forEach(function(路径) {
-            try { 删除字段(obj, 路径); } catch (字段错误) {
-                console.log("⚠️ [降级] 删除字段失败(" + 路径 + "): " + 字段错误);
+            try {
+                if (递归删除字段(对象, 路径)) 成功计数++;
+            } catch (字段错误) {
+                console.log("⚠️ [降级] 删除字段异常(" + 路径 + "): " + 字段错误);
             }
         });
-        console.log("🧹 [4] 广告字段删除完毕");
+        console.log("🧹 [4] 去广告执行完毕，成功删除 " + 成功计数 + " 个字段");
+        return 对象;
+    }
 
-        console.log("🎉 [5] 脚本执行成功！");
-        // 4. 返回修改后的响应
+    try {
+        var obj = JSON.parse(body);
+        console.log("✅ [5] JSON 解析成功，顶层字段: " + Object.keys(obj).join(", "));
+
+        // 调用核心去广告函数
+        obj = 执行去广告(obj);
+
+        console.log("🎉 [6] 脚本执行成功！准备返回修改后的响应");
         $done({ body: JSON.stringify(obj) });
     } catch (e) {
         console.log("❌ [异常] 解析失败：" + e + "，原样放行");
