@@ -196,8 +196,8 @@ $done($request);
         }
 
         // ====== 配置区：在这里修改需要的字段 ======
-        对象.data.isVip = 1;
-        console.log("   [3.2] isVip 已设为 1（会员状态）");
+        对象.data.isvip = 1;
+        console.log("   [3.2] isvip 已设为 1（会员状态）");
         对象.data.vipExpire = String(对象.data.vipExpire || "2099-12-31");
         console.log("   [3.3] vipExpire 已设为: " + 对象.data.vipExpire);
         对象.data.vipLevel = 1;

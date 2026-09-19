@@ -404,34 +404,63 @@ enum 智能分析服务 {
                 说明: "未识别到特定字段，使用通用模板手动修改",
                 代码: """
 // ======================
-// 通用响应修改模板（四步标准流程）
+// 通用响应修改模板（圈X实战标准流程）
 // 请根据实际接口结构修改下方代码
 // ======================
-// 【第一步】获取响应体，保存原始内容作为兜底
-const 原始响应体 = ($response && $response.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 通用响应修改模板触发！");
 
-// 【第二步】把响应体文本"翻译"成脚本能修改的对象
-let body = {};
-try {
-    body = JSON.parse(原始响应体);
-} catch (解析错误) {
-    // 不是JSON格式，原样放行
-    console.log("[放行] 响应不是JSON格式，原样返回");
-    $done({ body: 原始响应体 });
-    return;
-}
+    // 1. 检查响应对象是否存在
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义！请在圈X的 [rewrite_local] 里使用 script-response-body");
+        $done({}); return;
+    }
+    console.log("✅ [1.1] $response 对象存在");
 
-try {
-    // 【第三步】修改对象里的字段
-    // 例如：if (body.data && typeof body.data === "object") { body.data.isVip = 1; }
+    var 原始响应体 = $response.body;
+    if (!原始响应体) {
+        console.log("⚠️ [错误] 响应体为空！可能接口返回了 204/304，或者需要开启 MitM");
+        $done({}); return;
+    }
+    console.log("📦 [2] 成功获取 Body，长度: " + 原始响应体.length);
+    console.log("🔍 [2.1] Body 前 100 字符: " + 原始响应体.substring(0, 100));
 
-    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
-    $done({ body: JSON.stringify(body) });
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+    // 2. 判断是不是JSON（非JSON直接放行，不破坏页面）
+    var contentType = $response.headers["Content-Type"] || "";
+    var isJson = contentType.indexOf("json") !== -1 ||
+                 (原始响应体.charAt(0) === "{" || 原始响应体.charAt(0) === "[");
+    if (!isJson) {
+        console.log("⚠️ 非 JSON 响应（网页/图片等），直接放行");
+        $done({}); return;
+    }
+    console.log("✅ [2.2] 确认是 JSON 响应");
+
+    // ================= 核心修改函数 =================
+    function 修改响应数据(body) {
+        console.log("👑 [3] 开始执行修改响应数据函数");
+        // ====== 配置区：在这里修改需要的字段 ======
+        // 例如：if (!body.data || typeof body.data !== "object") body.data = {};
+        // body.data.isvip = 1;  // 会员状态设为1（小写字段名）
+        // ============================================
+        console.log("👑 [4] 修改响应数据函数执行完毕");
+        return body;
+    }
+
+    try {
+        var body = JSON.parse(原始响应体);
+        console.log("✅ [5] JSON 解析成功，顶层字段: " + Object.keys(body).join(", "));
+
+        // 调用核心修改函数
+        body = 修改响应数据(body);
+
+        console.log("🎉 [6] 脚本执行成功！准备返回修改后的响应");
+        $done({ body: JSON.stringify(body) });
+    } catch (e) {
+        console.log("❌ [异常] 解析失败：" + e + "，原样放行");
+        $done({ body: 原始响应体 });
+    }
+})();
 """,
                 分类: "通用"
             ))
@@ -771,37 +800,63 @@ try {
 
         return """
 // ======================
-// 功能：综合模板（全部识别字段一键导入）
+// 功能：智能分析综合模板（全部识别字段一键导入）
 // 共识别到\(总字段数)个字段，包含会员解锁/去广告/用户信息修改
-// 优化写法：统一初始化父级路径（只检查一次）→ 直接修改字段（不再重复判断）
-// 四步标准流程：获取body → JSON.parse → 修改字段 → JSON.stringify+$done
+// 遵循圈X实战标准流程：IIFE包裹→响应检查→非JSON放行→try-catch→function封装修改→$done返回
 // ======================
-// 【第一步】获取响应体，保存原始内容作为兜底
-const 原始响应体 = ($response && $response.body) || "";
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 智能分析综合模板触发！");
 
-// 【第二步】把响应体文本"翻译"成脚本能修改的对象
-let body = {};
-try {
-    body = JSON.parse(原始响应体);
-} catch (解析错误) {
-    // 不是JSON格式，原样放行
-    console.log("[放行] 响应不是JSON格式，原样返回");
-    $done({ body: 原始响应体 });
-    return;
-}
+    // 1. 检查响应对象是否存在
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义！请在圈X的 [rewrite_local] 里使用 script-response-body");
+        $done({}); return;
+    }
+    console.log("✅ [1.1] $response 对象存在");
 
-try {
-    // 【第三步】修改对象里的字段（自动合并所有识别到的字段）
+    var 原始响应体 = $response.body;
+    if (!原始响应体) {
+        console.log("⚠️ [错误] 响应体为空！可能接口返回了 204/304，或者需要开启 MitM");
+        $done({}); return;
+    }
+    console.log("📦 [2] 成功获取 Body，长度: " + 原始响应体.length);
+    console.log("🔍 [2.1] Body 前 100 字符: " + 原始响应体.substring(0, 100));
+
+    // 2. 判断是不是JSON（非JSON直接放行，不破坏页面）
+    var contentType = $response.headers["Content-Type"] || "";
+    var isJson = contentType.indexOf("json") !== -1 ||
+                 (原始响应体.charAt(0) === "{" || 原始响应体.charAt(0) === "[");
+    if (!isJson) {
+        console.log("⚠️ 非 JSON 响应（网页/图片等），直接放行");
+        $done({}); return;
+    }
+    console.log("✅ [2.2] 确认是 JSON 响应");
+
+    // ================= 核心修改函数 =================
+    function 执行全部修改(body) {
+        console.log("👑 [3] 开始执行智能分析综合修改函数，共修改\(总字段数)个字段");
 \(初始化代码)\(修改代码块)
-    console.log("✔️脚本执行完成，共修改\(总字段数)个字段");
+        console.log("👑 [4] 综合修改函数执行完毕");
+        return body;
+    }
 
-    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
-    $done({ body: JSON.stringify(body) });
-} catch (错误) {
-    // 【终极兜底】任何异常都返回原始响应
-    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
-    $done({ body: 原始响应体 });
-}
+    try {
+        var body = JSON.parse(原始响应体);
+        console.log("✅ [5] JSON 解析成功，顶层字段: " + Object.keys(body).join(", "));
+
+        // 调用核心修改函数
+        body = 执行全部修改(body);
+
+        console.log("🎉 [6] 脚本执行成功！准备返回修改后的响应");
+        // 把改好的对象重新"压回"文本字符串，调用$done返回
+        $done({ body: JSON.stringify(body) });
+    } catch (e) {
+        console.log("❌ [异常] 解析失败：" + e + "，原样放行");
+        // 解析失败返回原始响应体
+        $done({ body: 原始响应体 });
+    }
+})();
 """
     }
 
