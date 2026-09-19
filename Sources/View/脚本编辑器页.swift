@@ -60,6 +60,8 @@ struct 脚本编辑器页: View {
                 模板选择弹窗(视图模型: 视图模型)
             case .补全:
                 代码补全弹窗(视图模型: 视图模型)
+            case .教程:
+                新手教程弹窗()
             }
         }
         // 重命名输入覆盖层（iOS14 Alert不支持TextField，使用自定义覆盖层）
@@ -143,6 +145,9 @@ struct 工具栏视图: View {
                 }
                 工具按钮(标题: "补全", 图标: "textformat", 颜色: .orange) {
                     视图模型.当前弹窗 = .补全
+                }
+                工具按钮(标题: "教程", 图标: "book.fill", 颜色: Color(UIColor.systemTeal)) {
+                    视图模型.当前弹窗 = .教程
                 }
                 工具按钮(标题: "获取信息", 图标: "wand.and.stars", 颜色: Color(UIColor.systemPurple)) {
                     显示智能分析 = true

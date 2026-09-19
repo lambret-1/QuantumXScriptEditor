@@ -5,6 +5,7 @@ import SwiftUI
 enum 编辑器弹窗类型: String, Identifiable {
     case 模板 = "模板"
     case 补全 = "补全"
+    case 教程 = "教程"
     var id: String { rawValue }
 }
 

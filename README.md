@@ -69,6 +69,16 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.2.2
+- 新增新手教程功能（基于圈X官方文档整理）：
+  - 编辑器顶部工具栏新增"教程"按钮，点击打开新手教程弹窗
+  - 教程内容覆盖4大分类：基础语法（let/const/var/if/else/for/while/function/return/try-catch/typeof）、数据类型（String/Number/Boolean/Array/Object/undefined/null）、圈X专用API（$done/$request/$response/$task.fetch/$prefs/$notify/console.log/setTimeout）、常用操作（JSON.parse/JSON.stringify/安全访问嵌套对象/数组filter/delete删除属性/字符串替换）
+  - 每个教程项包含：关键词、中文说明、可运行代码示例
+  - 支持按分类筛选（全部/基础语法/数据类型/圈X专用API/常用操作）
+  - 支持关键词搜索（如输入"$done"快速定位）
+  - 圈X专用API部分特别标注：$done必须调用、console前面不加$、$task.fetch不是$httpClient、$prefs不是$persistentStore等新手易错点
+  - 涉及文件：新手教程弹窗.swift（新建）、脚本编辑器页.swift、脚本编辑器视图模型.swift
+
 ### v1.2.1
 - JS脚本测试网络速度全面优化：
   - 【核心功能】新增"一键获取真实响应体"按钮：真实请求目标网址获取响应体并缓存，执行脚本时直接使用缓存数据，避免脚本中重复发起网络请求
