@@ -49,9 +49,46 @@ struct 智能分析弹窗: View {
                     VStack(alignment: .leading, spacing: 12) {
                         // 粘贴输入区
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("粘贴抓包数据")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                            HStack {
+                                Text("粘贴抓包数据")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                // 一键粘贴按钮
+                                Button(action: {
+                                    if let 剪贴板内容 = UIPasteboard.general.string {
+                                        原始文本 = 剪贴板内容
+                                    }
+                                }) {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "doc.on.clipboard")
+                                            .font(.caption2)
+                                        Text("一键粘贴")
+                                            .font(.caption2)
+                                    }
+                                    .foregroundColor(.blue)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(Color.blue.opacity(0.1))
+                                    .cornerRadius(4)
+                                }
+                                // 一键删除按钮
+                                Button(action: {
+                                    原始文本 = ""
+                                }) {
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "trash")
+                                            .font(.caption2)
+                                        Text("一键删除")
+                                            .font(.caption2)
+                                    }
+                                    .foregroundColor(.red)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(Color.red.opacity(0.1))
+                                    .cornerRadius(4)
+                                }
+                            }
                             TextEditor(text: $原始文本)
                                 .font(.system(size: 11, design: .monospaced)) // 11pt等宽字体，粘贴数据编辑
                                 .frame(height: 120) // 120pt高度，足够粘贴一段JSON

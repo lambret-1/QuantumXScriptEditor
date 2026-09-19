@@ -2,6 +2,11 @@ import Foundation
 
 /// 智能分析服务，解析用户粘贴的抓包数据，自动识别会员信息与广告信息，并生成对应脚本模板
 /// 支持格式：JSON响应体、cURL命令、HAR格式、纯文本键值对
+/// 所有生成的模板统一遵循圈X标准四步流程：
+/// 第一步：获取 $response.body，不是JSON就原样放行
+/// 第二步：JSON.parse() 把文本"翻译"成脚本能修改的对象
+/// 第三步：修改对象里的字段
+/// 第四步：JSON.stringify() 把对象重新"压回"文本，调用 $done({ body: ... })
 enum 智能分析服务 {
 
     // MARK: - 分析结果模型
@@ -259,11 +264,23 @@ enum 智能分析服务 {
 
     // MARK: - 生成模板
 
-    /// 根据分析结果生成可插入的脚本模板列表
+    /// 根据分析结果生成可插入的脚本模板列表（综合模板置顶）
     /// - Parameter 结果: 分析结果
     /// - Returns: 生成的模板列表
     static func 生成模板列表(结果: 分析结果) -> [生成模板] {
         var 模板列表: [生成模板] = []
+
+        // ====== 置顶：全部分析结果综合模板 ======
+        if 结果.有结果 {
+            let 综合代码 = 生成综合模板(结果: 结果)
+            let 总字段数 = 结果.会员字段.count + 结果.广告字段.count + 结果.用户核心字段.count
+            模板列表.append(生成模板(
+                名称: "⭐ 全部导入（\(总字段数)个字段一键生成）",
+                说明: "将所有识别到的会员、广告、用户字段合并到一个完整脚本中，一键插入",
+                代码: 综合代码,
+                分类: "综合模板"
+            ))
+        }
 
         // 生成会员状态修改模板
         let 会员状态字段 = 结果.会员字段.filter { $0.类型 == .会员状态 }
@@ -387,17 +404,31 @@ enum 智能分析服务 {
                 说明: "未识别到特定字段，使用通用模板手动修改",
                 代码: """
 // ======================
-// 通用响应修改模板（含四级容错）
+// 通用响应修改模板（四步标准流程）
 // 请根据实际接口结构修改下方代码
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
+
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
 try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
-    // TODO: 在这里修改响应字段
-    // 例如：if (body.data) { body.data.isVip = true; }
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    // 不是JSON格式，原样放行
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】修改对象里的字段
+    // 例如：if (body.data && typeof body.data === "object") { body.data.isVip = true; }
+
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
+    // 【终极兜底】任何异常都返回原始响应
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
@@ -604,25 +635,144 @@ try {
         路径.components(separatedBy: ".").joined(separator: " › ")
     }
 
-    // MARK: - 模板生成方法
+    // MARK: - 综合模板生成（全部字段一键导入）
+
+    /// 生成综合模板：将所有识别到的会员、广告、用户字段合并到一个完整脚本中
+    private static func 生成综合模板(结果: 分析结果) -> String {
+        var 修改代码块 = ""
+
+        // --- 会员状态修改 ---
+        let 会员状态字段 = 结果.会员字段.filter { $0.类型 == .会员状态 }
+        for 字段 in 会员状态字段 {
+            let 导航 = 生成安全导航(字段路径: 字段.字段路径)
+            修改代码块 += "\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === \"object\") {\n    \(导航.父级路径).\(导航.最终字段) = true;  // 会员状态解锁\n}\n"
+        }
+
+        // --- 会员到期时间修改 ---
+        let 会员到期字段 = 结果.会员字段.filter { $0.类型 == .会员到期时间 }
+        for 字段 in 会员到期字段 {
+            let 导航 = 生成安全导航(字段路径: 字段.字段路径)
+            let 是否时间戳 = Double(字段.当前值) != nil && (Double(字段.当前值) ?? 0) > 1000000000
+            let 永久值 = 是否时间戳 ? "4070908800" : "\"2099-12-31 23:59:59\""
+            修改代码块 += "\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === \"object\") {\n    \(导航.父级路径).\(导航.最终字段) = \(永久值);  // 会员永久有效\n}\n"
+        }
+
+        // --- 会员等级修改 ---
+        let 会员等级字段 = 结果.会员字段.filter { $0.类型 == .会员等级 }
+        for 字段 in 会员等级字段 {
+            let 导航 = 生成安全导航(字段路径: 字段.字段路径)
+            let 是否数字 = Int(字段.当前值) != nil
+            let 最高值 = 是否数字 ? "6" : "\"VIP6\""
+            修改代码块 += "\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === \"object\") {\n    \(导航.父级路径).\(导航.最终字段) = \(最高值);  // 会员等级最高\n}\n"
+        }
+
+        // --- 广告字段删除 ---
+        let 广告标记字段 = 结果.广告字段.filter { $0.类型 == .广告标记 || $0.类型 == .广告链接 || $0.类型 == .广告图片 }
+        if !广告标记字段.isEmpty {
+            let 字段列表文本 = 广告标记字段.map { "\"\($0.字段路径)\"" }.joined(separator: ", ")
+            修改代码块 += "// 【去广告】删除识别到的广告字段\nconst 要删除的广告字段 = [\(字段列表文本)];\nfunction 删除字段(obj, 路径) {\n    if (!obj || typeof obj !== \"object\") return;\n    const 部分 = String(路径).split(\".\");\n    let 当前 = obj;\n    for (let i = 0; i < 部分.length - 1; i++) {\n        if (当前[部分[i]] === undefined || 当前[部分[i]] === null || typeof 当前[部分[i]] !== \"object\") return;\n        当前 = 当前[部分[i]];\n    }\n    delete 当前[部分[部分.length - 1]];\n}\n要删除的广告字段.forEach(function(路径) { try { 删除字段(body, 路径); } catch (e) {} });\n"
+        }
+
+        // --- 用户昵称修改 ---
+        let 用户名字段 = 结果.用户核心字段.filter { $0.类型 == .用户名 }
+        for 字段 in 用户名字段 {
+            let 导航 = 生成安全导航(字段路径: 字段.字段路径)
+            修改代码块 += "\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === \"object\") {\n    \(导航.父级路径).\(导航.最终字段) = \"新昵称\";  // 修改用户昵称\n}\n"
+        }
+
+        // --- 积分余额修改 ---
+        let 积分字段 = 结果.用户核心字段.filter { $0.类型 == .积分余额 }
+        for 字段 in 积分字段 {
+            let 导航 = 生成安全导航(字段路径: 字段.字段路径)
+            let 是否数字 = Double(字段.当前值) != nil
+            let 新值 = 是否数字 ? "999999" : "\"999999\""
+            修改代码块 += "\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === \"object\") {\n    \(导航.父级路径).\(导航.最终字段) = \(新值);  // 积分余额拉满\n}\n"
+        }
+
+        // --- 隐私保护（手机号/邮箱掩码）---
+        let 隐私字段 = 结果.用户核心字段.filter { $0.类型 == .手机号 || $0.类型 == .邮箱 }
+        for 字段 in 隐私字段 {
+            let 路径部分 = 字段.字段路径.components(separatedBy: ".")
+            var 父级路径 = "body"
+            var 导航代码 = ""
+            for i in 0..<(路径部分.count - 1) {
+                导航代码 += "if (\(父级路径).\(路径部分[i]) !== undefined && \(父级路径).\(路径部分[i]) !== null && typeof \(父级路径).\(路径部分[i]) === \"object\") { "
+                父级路径 += ".\(路径部分[i])"
+            }
+            let 最终字段 = 路径部分.last ?? 字段.字段路径
+            let 关闭括号 = String(repeating: "}", count: 路径部分.count - 1)
+            if 字段.类型 == .手机号 {
+                修改代码块 += "\(导航代码)\(父级路径).\(最终字段) = String(\(父级路径).\(最终字段)).replace(/(\\d{3})\\d{4}(\\d{4})/, \"$1****$2\");  // 手机号掩码\(关闭括号)\n"
+            } else {
+                修改代码块 += "\(导航代码){ let _e = String(\(父级路径).\(最终字段)); let _at = _e.indexOf(\"@\"); if (_at > 2) { \(父级路径).\(最终字段) = _e.substring(0, 2) + \"****\" + _e.substring(_at); } }\(关闭括号)  // 邮箱掩码\n"
+            }
+        }
+
+        let 总字段数 = 结果.会员字段.count + 结果.广告字段.count + 结果.用户核心字段.count
+
+        return """
+// ======================
+// 功能：综合模板（全部识别字段一键导入）
+// 共识别到\(总字段数)个字段，包含会员解锁/去广告/用户信息修改
+// 四步标准流程：获取body → JSON.parse → 修改字段 → JSON.stringify+$done
+// ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
+const 原始响应体 = ($response && $response.body) || "";
+
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
+try {
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    // 不是JSON格式，原样放行
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】修改对象里的字段（自动合并所有识别到的字段）
+\(修改代码块)
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
+    $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    // 【终极兜底】任何异常都返回原始响应
+    console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
+    $done({ body: 原始响应体 });
+}
+"""
+    }
+
+    // MARK: - 单字段模板生成方法（四步标准流程）
 
     /// 生成会员状态修改模板
     private static func 生成会员状态模板(字段路径: String, 当前值: String) -> String {
         let 导航 = 生成安全导航(字段路径: 字段路径)
         return """
 // ======================
-// 功能：解锁会员状态（含四级容错）
+// 功能：解锁会员状态
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
+
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
 try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
-\(导航.导航代码)// 【基础容错】空值保护后修改字段
-if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】修改对象里的字段
+\(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
     \(导航.父级路径).\(导航.最终字段) = true;
 }
-$done({ body: JSON.stringify(body) });
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
+    $done({ body: JSON.stringify(body) });
 } catch (错误) {
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
@@ -633,27 +783,33 @@ $done({ body: JSON.stringify(body) });
     /// 生成会员到期时间修改模板
     private static func 生成会员到期模板(字段路径: String, 当前值: String) -> String {
         let 导航 = 生成安全导航(字段路径: 字段路径)
-        // 判断当前值是时间戳还是日期字符串
         let 是否时间戳 = Double(当前值) != nil && (Double(当前值) ?? 0) > 1000000000
-        let 永久值: String
-        if 是否时间戳 {
-            永久值 = "4070908800" // 2099-01-01 时间戳（秒）
-        } else {
-            永久值 = "\"2099-12-31 23:59:59\""
-        }
+        let 永久值 = 是否时间戳 ? "4070908800" : "\"2099-12-31 23:59:59\""
         return """
 // ======================
-// 功能：会员永久有效（含四级容错）
+// 功能：会员永久有效
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
+
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
 try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】修改对象里的字段
 \(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
     \(导航.父级路径).\(导航.最终字段) = \(永久值);
 }
-$done({ body: JSON.stringify(body) });
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
+    $done({ body: JSON.stringify(body) });
 } catch (错误) {
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
@@ -664,22 +820,33 @@ $done({ body: JSON.stringify(body) });
     /// 生成会员等级修改模板
     private static func 生成会员等级模板(字段路径: String, 当前值: String) -> String {
         let 导航 = 生成安全导航(字段路径: 字段路径)
-        // 判断当前值是数字还是字符串
         let 是否数字 = Int(当前值) != nil
         let 最高值 = 是否数字 ? "6" : "\"VIP6\""
         return """
 // ======================
-// 功能：提升会员等级（含四级容错）
+// 功能：提升会员等级
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
+
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
 try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】修改对象里的字段
 \(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
     \(导航.父级路径).\(导航.最终字段) = \(最高值);
 }
-$done({ body: JSON.stringify(body) });
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
+    $done({ body: JSON.stringify(body) });
 } catch (错误) {
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
@@ -692,14 +859,24 @@ $done({ body: JSON.stringify(body) });
         let 字段列表文本 = 字段路径列表.map { "\"\($0)\"" }.joined(separator: ",\n    ")
         return """
 // ======================
-// 功能：去广告（删除识别到的广告字段，含四级容错）
+// 功能：去广告（删除识别到的广告字段）
 // 识别到\(字段路径列表.count)个广告字段
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
-try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
 
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
+try {
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】删除对象里的广告字段
     const 要删除的字段 = [
     \(字段列表文本)
     ];
@@ -719,6 +896,7 @@ try {
         try { 删除字段(body, 路径); } catch (e) {}
     });
 
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
@@ -731,14 +909,24 @@ try {
     private static func 生成去广告数组成员模板(数组路径: String) -> String {
         return """
 // ======================
-// 功能：去广告数组（从列表中过滤广告项，含四级容错）
+// 功能：去广告数组（从列表中过滤广告项）
 // 识别数组：\(数组路径)
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
-try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
 
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
+try {
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】过滤数组里的广告项
     function 是否为广告(项) {
         if (!项 || typeof 项 !== "object") return false;
         return 项.isAd === true || 项.is_ad === true || 项.hasAd === true
@@ -746,7 +934,6 @@ try {
             || 项.type === "ad" || 项.type === "advert";
     }
 
-    // 安全导航到数组
     const 部分 = "\(数组路径)".split(".");
     let 父级 = body;
     let 路径有效 = true;
@@ -766,6 +953,7 @@ try {
         }
     }
 
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
@@ -782,14 +970,24 @@ try {
         let 类型映射 = 用户字段.map { "case \"\($0.字段路径)\": return \"\(类型文本($0.类型))\"" }.joined(separator: "\n        ")
         return """
 // ======================
-// 功能：导出用户核心信息（含四级容错）
+// 功能：导出用户核心信息
 // 识别到\(用户字段.count)项用户核心字段，通过通知弹窗展示
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
-try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
 
+// 【第二步】把响应体文本"翻译"成脚本能读取的对象
+let body = {};
+try {
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】读取并展示用户核心信息
     const 用户字段 = [
     \(字段列表文本)
     ];
@@ -820,6 +1018,8 @@ try {
     if (信息列表.length > 0) {
         try { $notify("用户核心信息", "共" + 信息列表.length + "项", 信息列表.join("\\n")); } catch (e) {}
     }
+
+    // 【第四步】原样返回响应（此模板只读取不修改）
     $done({ body: 原始响应体 });
 } catch (错误) {
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
@@ -849,15 +1049,27 @@ try {
         }
         return """
 // ======================
-// 功能：隐私保护（隐藏手机号和邮箱，含四级容错）
+// 功能：隐私保护（隐藏手机号和邮箱）
 // 识别到\(隐私字段.count)个隐私字段，替换为星号掩码
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
-try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
 
-\(处理代码)$done({ body: JSON.stringify(body) });
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
+try {
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】掩码处理隐私字段
+\(处理代码)
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
+    $done({ body: JSON.stringify(body) });
 } catch (错误) {
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
@@ -870,17 +1082,29 @@ try {
         let 导航 = 生成安全导航(字段路径: 字段路径)
         return """
 // ======================
-// 功能：修改用户昵称（含四级容错）
+// 功能：修改用户昵称
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
+
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
 try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】修改对象里的字段
 \(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
     \(导航.父级路径).\(导航.最终字段) = "新昵称";
 }
-$done({ body: JSON.stringify(body) });
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
+    $done({ body: JSON.stringify(body) });
 } catch (错误) {
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
@@ -891,22 +1115,33 @@ $done({ body: JSON.stringify(body) });
     /// 生成修改积分余额模板
     private static func 生成修改积分模板(字段路径: String, 当前值: String) -> String {
         let 导航 = 生成安全导航(字段路径: 字段路径)
-        // 判断当前值是数字还是字符串
         let 是否数字 = Double(当前值) != nil
         let 新值 = 是否数字 ? "999999" : "\"999999\""
         return """
 // ======================
-// 功能：修改积分余额（含四级容错）
+// 功能：修改积分余额
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
 const 原始响应体 = ($response && $response.body) || "";
+
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
 try {
-    let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】修改对象里的字段
 \(导航.导航代码)if (\(导航.父级路径) !== undefined && \(导航.父级路径) !== null && typeof \(导航.父级路径) === "object") {
     \(导航.父级路径).\(导航.最终字段) = \(新值);
 }
-$done({ body: JSON.stringify(body) });
+    // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
+    $done({ body: JSON.stringify(body) });
 } catch (错误) {
     console.log("[兜底] 脚本异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
