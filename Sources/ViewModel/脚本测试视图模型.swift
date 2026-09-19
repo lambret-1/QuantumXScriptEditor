@@ -5,14 +5,15 @@ import SwiftUI
 enum 测试面板弹窗类型: String, Identifiable {
     case 网址管理 = "网址管理"
     case 环境管理 = "环境管理"
+    case 分享输出 = "分享输出"
     var id: String { rawValue }
 }
 
 /// 脚本测试面板视图模型，管理URL输入、请求头、测试环境、沙箱执行
 @MainActor
 final class 脚本测试视图模型: ObservableObject {
-    /// 目标测试URL
-    @Published var 目标网址 = ""
+    /// 目标测试URL（默认值，用户首次点击输入框时自动清除）
+    @Published var 目标网址 = "https://h5.xxoox20.org/api/init"
     /// 测试输出文本
     @Published var 测试输出 = ""
     /// 是否正在执行测试
@@ -23,8 +24,12 @@ final class 脚本测试视图模型: ObservableObject {
     @Published var 请求头文本 = ""
     /// 请求体编辑文本（POST/PUT时使用）
     @Published var 请求体文本 = ""
-    /// 是否展开请求体编辑区
+    /// 是否展开请求体编辑区（默认折叠，用户手动展开）
     @Published var 展开请求体 = false
+    /// 输出区域是否自动滚动到底部（默认开启）
+    @Published var 自动滚动 = true
+    /// 输出区域是否自动换行（默认开启）
+    @Published var 自动换行 = true
     /// 新建环境名称输入
     @Published var 新环境名称 = ""
     /// 选中的HTTP方法
@@ -127,6 +132,18 @@ final class 脚本测试视图模型: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
             self?.显示复制成功 = false
         }
+    }
+
+    /// 输出文本行数统计
+    var 输出行数: Int {
+        if 测试输出.isEmpty { return 0 }
+        return 测试输出.components(separatedBy: .newlines).count
+    }
+
+    /// 分享测试输出（通过系统分享面板）
+    func 分享输出() {
+        guard !测试输出.isEmpty else { return }
+        当前弹窗 = .分享输出
     }
 
     /// 应用选中的测试环境

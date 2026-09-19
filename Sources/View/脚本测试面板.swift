@@ -6,6 +6,8 @@ struct 脚本测试面板: View {
     @ObservedObject var 编辑器视图模型: 脚本编辑器视图模型
     /// 测试视图模型
     @ObservedObject var 测试视图模型: 脚本测试视图模型
+    /// 网址是否已被用户首次编辑（用于点击清除默认网址）
+    @State private var 网址已首次编辑 = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -38,10 +40,7 @@ struct 脚本测试面板: View {
                     ForEach(测试视图模型.可用方法, id: \.self) { 方法 in
                         Button(action: {
                             测试视图模型.请求方法 = 方法
-                            // POST/PUT/PATCH自动展开请求体
-                            if 方法 == "POST" || 方法 == "PUT" || 方法 == "PATCH" {
-                                测试视图模型.展开请求体 = true
-                            }
+                            // 请求体默认折叠，不随方法切换自动展开，用户手动展开
                         }) {
                             Text(方法)
                                 .font(.caption)
@@ -57,12 +56,20 @@ struct 脚本测试面板: View {
                 .padding(.horizontal, 16)
             }
 
-            // URL输入行
+            // URL输入行（默认显示测试网址，首次点击编辑时自动清除）
             HStack(spacing: 8) {
                 Image(systemName: "link")
                     .foregroundColor(.secondary)
                     .frame(width: 20) // 20pt图标宽度，对齐输入框
-                TextField("输入测试网址，如 https://httpbin.org/get", text: $测试视图模型.目标网址)
+                TextField("输入测试网址，如 https://httpbin.org/get",
+                          text: $测试视图模型.目标网址,
+                          onEditingChanged: { 正在编辑 in
+                              // 首次进入编辑状态时自动清除默认网址，方便用户重新输入
+                              if 正在编辑 && !网址已首次编辑 {
+                                  测试视图模型.目标网址 = ""
+                                  网址已首次编辑 = true
+                              }
+                          })
                     .font(.system(size: 14))
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .autocapitalization(.none)
@@ -154,14 +161,39 @@ struct 脚本测试面板: View {
             }
             .padding(.horizontal, 16)
 
-            // 测试输出（彩色 + 自动滚动 + 复制按钮）
+            // 测试输出（彩色 + 自动滚动 + 复制/分享/清空 + 行数统计）
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("测试输出")
                         .font(.caption)
                         .foregroundColor(.secondary)
                     Spacer()
+                    // 自动滚动开关
+                    Button(action: {
+                        测试视图模型.自动滚动.toggle()
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: 测试视图模型.自动滚动 ? "arrow.down.circle.fill" : "arrow.down.circle")
+                                .font(.caption2)
+                            Text("滚动")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(测试视图模型.自动滚动 ? .blue : .secondary)
+                    }
+                    // 自动换行开关
+                    Button(action: {
+                        测试视图模型.自动换行.toggle()
+                    }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: 测试视图模型.自动换行 ? "text.word.spacing" : "text.alignleft")
+                                .font(.caption2)
+                            Text("换行")
+                                .font(.caption2)
+                        }
+                        .foregroundColor(测试视图模型.自动换行 ? .blue : .secondary)
+                    }
                     if !测试视图模型.测试输出.isEmpty {
+                        // 复制按钮
                         Button(action: {
                             测试视图模型.复制输出()
                         }) {
@@ -173,13 +205,51 @@ struct 脚本测试面板: View {
                             }
                             .foregroundColor(.blue)
                         }
+                        // 分享按钮
+                        Button(action: {
+                            测试视图模型.分享输出()
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(.caption2)
+                                Text("分享")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(.blue)
+                        }
+                        // 清空按钮
+                        Button(action: {
+                            测试视图模型.清空输出()
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "trash")
+                                    .font(.caption2)
+                                Text("清空")
+                                    .font(.caption2)
+                            }
+                            .foregroundColor(.red)
+                        }
                     }
-                    Text("\(测试视图模型.测试输出.count) 字符")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                }
+                // 统计信息行
+                if !测试视图模型.测试输出.isEmpty {
+                    HStack(spacing: 12) {
+                        Text("\(测试视图模型.输出行数) 行")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text("\(测试视图模型.测试输出.count) 字符")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        if let 耗时 = 测试视图模型.最后耗时 {
+                            Text("耗时 \(String(format: "%.3f", 耗时))s")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                    }
                 }
                 // 彩色输出区域，自动滚动到底部
-                彩色输出视图(输出文本: 测试视图模型.测试输出)
+                彩色输出视图(输出文本: 测试视图模型.测试输出, 自动滚动: 测试视图模型.自动滚动, 自动换行: 测试视图模型.自动换行)
                     .frame(minHeight: 应用常量.测试输出最小高度) // 最小高度，保证输出区域可视
                     .background(Color(.systemGray6))
                     .cornerRadius(6)
@@ -197,6 +267,11 @@ struct 脚本测试面板: View {
                 网址管理弹窗(测试视图模型: 测试视图模型)
             case .环境管理:
                 测试环境管理弹窗(测试视图模型: 测试视图模型)
+            case .分享输出:
+                分享文本视图(文本: 测试视图模型.测试输出) {
+                    测试视图模型.当前弹窗 = nil
+                }
+                .background(透明背景()) // 透明背景，只显示系统分享面板
             }
         }
     }
@@ -246,6 +321,10 @@ struct 脚本测试面板: View {
 struct 彩色输出视图: View {
     /// 输出文本
     let 输出文本: String
+    /// 是否自动滚动到底部
+    let 自动滚动: Bool
+    /// 是否自动换行
+    let 自动换行: Bool
     /// 滚动视图底部锚点ID
     private let 底部锚点 = "底部锚点"
 
@@ -264,6 +343,7 @@ struct 彩色输出视图: View {
                                 .font(.system(size: 12, design: .monospaced)) // 12pt等宽字体，控制台输出风格
                                 .foregroundColor(行颜色(行))
                                 .frame(maxWidth: .infinity, alignment: .leading)
+                                .fixedSize(horizontal: !自动换行, vertical: false) // 控制是否自动换行
                         }
                     }
                     // 底部锚点，用于自动滚动
@@ -274,9 +354,11 @@ struct 彩色输出视图: View {
                 .padding(8)
             }
             .onChange(of: 输出文本) { _ in
-                // 输出变化时自动滚动到底部
-                withAnimation(.easeOut(duration: 0.2)) {
-                    代理.scrollTo(底部锚点, anchor: .bottom)
+                // 输出变化时自动滚动到底部（仅当自动滚动开启时）
+                if 自动滚动 {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        代理.scrollTo(底部锚点, anchor: .bottom)
+                    }
                 }
             }
         }

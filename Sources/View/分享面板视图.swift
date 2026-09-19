@@ -56,3 +56,60 @@ final class 分享面板容器控制器: UIViewController {
         present(活动视图控制器, animated: true)
     }
 }
+
+// MARK: - 文本分享视图
+
+/// iOS系统分享面板（文本版），用于分享纯文本内容
+struct 分享文本视图: UIViewControllerRepresentable {
+    /// 要分享的文本内容
+    let 文本: String
+    /// 分享完成回调
+    var 完成回调: (() -> Void)?
+
+    func makeUIViewController(context: Context) -> 文本分享容器控制器 {
+        let 容器 = 文本分享容器控制器()
+        容器.文本 = 文本
+        容器.完成回调 = 完成回调
+        return 容器
+    }
+
+    func updateUIViewController(_ 容器: 文本分享容器控制器, context: Context) {
+        // 无需更新
+    }
+}
+
+/// 文本分享面板容器控制器
+final class 文本分享容器控制器: UIViewController {
+    /// 要分享的文本
+    var 文本: String?
+    /// 分享完成回调
+    var 完成回调: (() -> Void)?
+    /// 是否已弹出分享面板（防止重复弹出）
+    private var 已弹出 = false
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .clear // 透明背景，只显示系统分享面板
+    }
+
+    override func viewDidAppear(_ 动画: Bool) {
+        super.viewDidAppear(动画)
+        guard !已弹出, let 文本 = 文本 else { return }
+        已弹出 = true
+
+        let 活动视图控制器 = UIActivityViewController(activityItems: [文本], applicationActivities: nil)
+        活动视图控制器.completionWithItemsHandler = { [weak self] _, _, _, _ in
+            self?.完成回调?()
+            self?.dismiss(animated: true)
+        }
+
+        // iPad适配：从中间弹出
+        if let 弹窗 = 活动视图控制器.popoverPresentationController {
+            弹窗.sourceView = view
+            弹窗.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+            弹窗.permittedArrowDirections = []
+        }
+
+        present(活动视图控制器, animated: true)
+    }
+}
