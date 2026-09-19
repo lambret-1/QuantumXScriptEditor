@@ -323,11 +323,11 @@ final class 补全辅助视图: UIView {
     private let 滚动视图 = UIScrollView()
     /// 候选按钮堆栈
     private let 堆栈视图 = UIStackView()
-    /// 是否有候选（控制视图高度）
-    private var 有候选 = false
+    /// 空态占位标签
+    private let 占位标签 = UILabel()
 
     override init(frame: CGRect) {
-        super.init(frame: frame)
+        super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44)) // 固定44pt高度，确保inputAccessoryView稳定显示
         设置界面()
     }
 
@@ -335,9 +335,9 @@ final class 补全辅助视图: UIView {
         fatalError("init(coder:) 未实现")
     }
 
-    /// 固有内容尺寸，无候选时高度为0实现隐藏
+    /// 固有内容尺寸，固定44pt高度（inputAccessoryView需要稳定高度）
     override var intrinsicContentSize: CGSize {
-        CGSize(width: UIView.noIntrinsicMetric, height: 有候选 ? 44 : 0) // 有候选时44pt高，适配键盘上方区域
+        CGSize(width: UIView.noIntrinsicMetric, height: 44) // 固定44pt高，适配键盘上方区域
     }
 
     private func 设置界面() {
@@ -348,6 +348,14 @@ final class 补全辅助视图: UIView {
         分隔线.backgroundColor = .separator
         分隔线.translatesAutoresizingMaskIntoConstraints = false
         addSubview(分隔线)
+
+        // 空态占位标签
+        占位标签.text = "输入代码触发补全建议（支持 $、函数名、中文关键词搜索）"
+        占位标签.font = .systemFont(ofSize: 12) // 12pt小字，空态提示
+        占位标签.textColor = .secondaryLabel
+        占位标签.textAlignment = .center
+        占位标签.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(占位标签)
 
         // 滚动视图
         滚动视图.showsHorizontalScrollIndicator = false
@@ -368,6 +376,11 @@ final class 补全辅助视图: UIView {
             分隔线.trailingAnchor.constraint(equalTo: trailingAnchor),
             分隔线.heightAnchor.constraint(equalToConstant: 0.5), // 0.5pt细分割线，iOS标准分隔线厚度
 
+            占位标签.topAnchor.constraint(equalTo: 分隔线.bottomAnchor),
+            占位标签.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            占位标签.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            占位标签.bottomAnchor.constraint(equalTo: bottomAnchor),
+
             滚动视图.topAnchor.constraint(equalTo: 分隔线.bottomAnchor),
             滚动视图.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12), // 左边距12pt
             滚动视图.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12), // 右边距12pt
@@ -384,7 +397,11 @@ final class 补全辅助视图: UIView {
     /// 更新候选列表并重建按钮
     func 更新候选(_ 列表: [代码补全项]) {
         候选列表 = 列表
-        有候选 = !列表.isEmpty
+        let 有候选 = !列表.isEmpty
+
+        // 切换占位标签与滚动视图显示
+        占位标签.isHidden = 有候选
+        滚动视图.isHidden = !有候选
 
         // 清除旧按钮
         堆栈视图.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -401,8 +418,6 @@ final class 补全辅助视图: UIView {
             按钮.addTarget(self, action: #selector(候选按钮点击(_:)), for: .touchUpInside)
             堆栈视图.addArrangedSubview(按钮)
         }
-
-        invalidateIntrinsicContentSize()
     }
 
     @objc private func 候选按钮点击(_ 按钮: 补全按钮) {
