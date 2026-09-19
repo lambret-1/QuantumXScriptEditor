@@ -19,6 +19,8 @@ final class 脚本测试视图模型: ObservableObject {
     @Published var 正在执行 = false
     /// 当前弹出的弹窗类型（iOS14兼容：单sheet+枚举）
     @Published var 当前弹窗: 测试面板弹窗类型? = nil
+    /// 是否显示弹窗（iOS14兼容：sheet(item:)在iOS14有bug无法弹出，改用isPresented驱动）
+    @Published var 显示弹窗 = false
     /// 请求头编辑文本（key:value 一行一个）
     @Published var 请求头文本 = ""
     /// 请求体编辑文本（POST/PUT时使用）

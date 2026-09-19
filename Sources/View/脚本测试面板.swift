@@ -84,9 +84,11 @@ struct 脚本测试面板: View {
             HStack(spacing: 10) {
                 按钮(标题: "地址库", 图标: "bookmark", 颜色: .purple) {
                     测试视图模型.当前弹窗 = .网址管理
+                    测试视图模型.显示弹窗 = true
                 }
                 按钮(标题: "环境", 图标: "square.stack", 颜色: Color(UIColor.systemTeal)) {
                     测试视图模型.当前弹窗 = .环境管理
+                    测试视图模型.显示弹窗 = true
                 }
                 Spacer()
                 按钮(标题: "清空", 图标: "trash", 颜色: .gray) {
@@ -352,13 +354,15 @@ struct 脚本测试面板: View {
         .background(Color(.systemBackground))
         // 复制成功提示浮层
         .overlay(复制成功浮层)
-        // iOS14兼容：单sheet+枚举，避免多sheet并列时只有一个能弹出的bug
-        .sheet(item: $测试视图模型.当前弹窗) { 弹窗类型 in
-            switch 弹窗类型 {
-            case .网址管理:
-                网址管理弹窗(测试视图模型: 测试视图模型)
-            case .环境管理:
-                测试环境管理弹窗(测试视图模型: 测试视图模型)
+        // iOS14兼容：sheet(item:)在iOS14有bug无法弹出，改用isPresented+枚举判断
+        .sheet(isPresented: $测试视图模型.显示弹窗) {
+            if let 弹窗类型 = 测试视图模型.当前弹窗 {
+                switch 弹窗类型 {
+                case .网址管理:
+                    网址管理弹窗(测试视图模型: 测试视图模型)
+                case .环境管理:
+                    测试环境管理弹窗(测试视图模型: 测试视图模型)
+                }
             }
         }
     }
@@ -507,7 +511,9 @@ private struct 按钮: View {
             .padding(.vertical, 7)
             .background(颜色.opacity(0.12))
             .cornerRadius(6)
+            .contentShape(Rectangle()) // iOS14兼容：确保整个按钮区域可点击，避免点击边缘无反应
         }
+        .buttonStyle(PlainButtonStyle()) // iOS14兼容：去除默认按钮样式，避免点击高亮异常
     }
 }
 

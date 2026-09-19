@@ -55,13 +55,15 @@ struct 脚本编辑器页: View {
             }
             .font(.subheadline)
         )
-        // iOS14兼容：单sheet+枚举，避免多sheet并列时只有一个能弹出的bug
-        .sheet(item: $视图模型.当前弹窗) { 弹窗类型 in
-            switch 弹窗类型 {
-            case .模板:
-                模板选择弹窗(视图模型: 视图模型)
-            case .补全:
-                代码补全弹窗(视图模型: 视图模型)
+        // iOS14兼容：sheet(item:)在iOS14有bug无法弹出，改用isPresented+枚举判断
+        .sheet(isPresented: $视图模型.显示弹窗) {
+            if let 弹窗类型 = 视图模型.当前弹窗 {
+                switch 弹窗类型 {
+                case .模板:
+                    模板选择弹窗(视图模型: 视图模型)
+                case .补全:
+                    代码补全弹窗(视图模型: 视图模型)
+                }
             }
         }
         // 重命名输入覆盖层（iOS14 Alert不支持TextField，使用自定义覆盖层）
@@ -157,9 +159,11 @@ struct 工具栏视图: View {
                 }
                 工具按钮(标题: "模板", 图标: "square.grid.2x2", 颜色: .purple) {
                     视图模型.当前弹窗 = .模板
+                    视图模型.显示弹窗 = true
                 }
                 工具按钮(标题: "补全", 图标: "textformat", 颜色: .orange) {
                     视图模型.当前弹窗 = .补全
+                    视图模型.显示弹窗 = true
                 }
                 工具按钮(标题: "教程", 图标: "book.fill", 颜色: Color(UIColor.systemTeal)) {
                     显示新手教程 = true
@@ -305,7 +309,9 @@ struct 工具按钮: View {
             .padding(.vertical, 8)
             .background(颜色.opacity(0.12)) // 淡色背景，区分按钮功能
             .cornerRadius(8)
+            .contentShape(Rectangle()) // iOS14兼容：确保整个按钮区域可点击
         }
+        .buttonStyle(PlainButtonStyle()) // iOS14兼容：去除默认按钮样式，避免点击高亮异常
     }
 }
 

@@ -21,6 +21,8 @@ final class 脚本编辑器视图模型: ObservableObject {
     @Published var 格式化提示: String?
     /// 当前弹出的弹窗类型（iOS14兼容：单sheet+枚举，避免多sheet并列bug）
     @Published var 当前弹窗: 编辑器弹窗类型? = nil
+    /// 是否显示弹窗（iOS14兼容：sheet(item:)在iOS14有bug无法弹出，改用isPresented驱动）
+    @Published var 显示弹窗 = false
     /// 是否显示重命名弹窗
     @Published var 显示重命名弹窗 = false
     /// 重命名输入
