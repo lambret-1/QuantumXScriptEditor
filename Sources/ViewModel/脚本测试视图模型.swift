@@ -152,6 +152,7 @@ final class 脚本测试视图模型: ObservableObject {
     // MARK: - 通用网络请求方法
 
     /// 通用：真实请求目标网址获取响应体（自动完整解码所有JSON转义序列）
+    /// 发起请求前会输出真实发送的请求头和请求体，方便调试
     /// - Parameters:
     ///   - 网址: 目标URL
     ///   - 方法: HTTP方法
@@ -167,21 +168,43 @@ final class 脚本测试视图模型: ObservableObject {
         请求.timeoutInterval = 8 // 8秒超时
 
         // POST/PUT/PATCH时附加请求体
-        if !请求体文本.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        let 清理后请求体 = 请求体文本.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !清理后请求体.isEmpty &&
            (方法 == "POST" || 方法 == "PUT" || 方法 == "PATCH") {
-            请求.httpBody = 请求体文本.data(using: .utf8)
+            请求.httpBody = 清理后请求体.data(using: .utf8)
         }
 
-        let 任务 = URLSession.shared.dataTask(with: 请求) { 数据, 响应, 错误 in
+        // 输出真实发送的请求信息（请求头+请求体），方便用户调试
+        测试输出 += "📤 真实请求信息：\n"
+        测试输出 += "   方法：\(方法)\n"
+        测试输出 += "   网址：\(网址)\n"
+        if !解析请求头.isEmpty {
+            let 请求头文本 = 解析请求头.map { "      \($0.key): \($0.value)" }.joined(separator: "\n")
+            测试输出 += "   请求头：\n\(请求头文本)\n"
+        } else {
+            测试输出 += "   请求头：（无自定义请求头，使用系统默认）\n"
+        }
+        if !清理后请求体.isEmpty && (方法 == "POST" || 方法 == "PUT" || 方法 == "PATCH") {
+            测试输出 += "   请求体：\n\(清理后请求体)\n"
+        }
+
+        let 任务 = URLSession.shared.dataTask(with: 请求) { [weak self] 数据, 响应, 错误 in
             DispatchQueue.main.async {
+                guard let 自身 = self else { return }
                 if let 错误 = 错误 {
                     完成(.failure(错误))
+                    return
+                }
+                guard let http响应 = 响应 as? HTTPURLResponse else {
+                    完成(.failure(NSError(domain: "测试错误", code: -3, userInfo: [NSLocalizedDescriptionKey: "无效的服务器响应"])))
                     return
                 }
                 guard let 数据 = 数据, let 响应体文本 = String(data: 数据, encoding: .utf8) else {
                     完成(.failure(NSError(domain: "测试错误", code: -2, userInfo: [NSLocalizedDescriptionKey: "响应体解析失败（可能是二进制数据）"])))
                     return
                 }
+                // 输出真实响应状态码
+                自身.测试输出 += "📥 真实响应：状态码\(http响应.statusCode)，响应体\(响应体文本.count)字符\n"
                 // 完整解码所有JSON转义序列（\uXXXX中文 + \" \\ \/ \n \r \t等）
                 let 解码后文本 = 脚本测试视图模型.解码JSON转义(响应体文本)
                 完成(.success(解码后文本))
