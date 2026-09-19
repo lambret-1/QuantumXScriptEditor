@@ -10,6 +10,8 @@ struct 脚本编辑器页: View {
     @State private var 使用代码键盘 = false
     /// 是否显示智能分析弹窗
     @State private var 显示智能分析 = false
+    /// 是否显示新手教程弹窗（使用overlay覆盖层，避免sheet自带背景造成多余窗口）
+    @State private var 显示新手教程 = false
 
     init(脚本: 脚本模型, 存储: 脚本存储) {
         _视图模型 = StateObject(wrappedValue: 脚本编辑器视图模型(脚本: 脚本, 存储: 存储))
@@ -19,7 +21,7 @@ struct 脚本编辑器页: View {
         ScrollView {
             VStack(spacing: 0) {
                 // 顶部工具栏
-                工具栏视图(视图模型: 视图模型, 使用代码键盘: $使用代码键盘, 显示智能分析: $显示智能分析)
+                工具栏视图(视图模型: 视图模型, 使用代码键盘: $使用代码键盘, 显示智能分析: $显示智能分析, 显示新手教程: $显示新手教程)
 
                 // 保存/格式化提示条
                 if let 提示 = 视图模型.保存提示 {
@@ -60,14 +62,14 @@ struct 脚本编辑器页: View {
                 模板选择弹窗(视图模型: 视图模型)
             case .补全:
                 代码补全弹窗(视图模型: 视图模型)
-            case .教程:
-                新手教程弹窗()
             }
         }
         // 重命名输入覆盖层（iOS14 Alert不支持TextField，使用自定义覆盖层）
         .overlay(重命名覆盖层)
         // 智能分析弹窗覆盖层
         .overlay(智能分析覆盖层)
+        // 新手教程弹窗覆盖层（使用overlay而非sheet，避免sheet自带背景造成多余窗口）
+        .overlay(新手教程覆盖层)
     }
 
     /// 重命名输入弹窗覆盖层
@@ -105,6 +107,17 @@ struct 脚本编辑器页: View {
             }
         }
     }
+
+    /// 新手教程弹窗覆盖层（使用overlay而非sheet，避免sheet自带背景造成多余窗口）
+    private var 新手教程覆盖层: some View {
+        Group {
+            if 显示新手教程 {
+                新手教程弹窗(关闭回调: {
+                    显示新手教程 = false
+                })
+            }
+        }
+    }
 }
 
 // MARK: - 工具栏视图
@@ -116,6 +129,8 @@ struct 工具栏视图: View {
     @Binding var 使用代码键盘: Bool
     /// 是否显示智能分析弹窗绑定
     @Binding var 显示智能分析: Bool
+    /// 是否显示新手教程弹窗绑定
+    @Binding var 显示新手教程: Bool
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -147,7 +162,7 @@ struct 工具栏视图: View {
                     视图模型.当前弹窗 = .补全
                 }
                 工具按钮(标题: "教程", 图标: "book.fill", 颜色: Color(UIColor.systemTeal)) {
-                    视图模型.当前弹窗 = .教程
+                    显示新手教程 = true
                 }
                 工具按钮(标题: "获取信息", 图标: "wand.and.stars", 颜色: Color(UIColor.systemPurple)) {
                     显示智能分析 = true

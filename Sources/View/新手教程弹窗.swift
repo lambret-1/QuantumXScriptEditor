@@ -115,8 +115,10 @@ struct 新手教程弹窗: View {
                     Spacer()
                     Button(action: { 关闭回调?() }) {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22)) // 22pt关闭按钮
+                            .font(.system(size: 24)) // 24pt关闭图标，醒目易点
                             .foregroundColor(.secondary)
+                            .frame(width: 44, height: 44) // 44pt×44pt点击区域，iOS推荐最小可点击尺寸，确保关闭按钮容易点中
+                            .contentShape(Rectangle()) // 确保整个44pt区域都可点击，不只是图标部分
                     }
                 }
                 .padding(.horizontal, 16)
@@ -191,7 +193,7 @@ struct 新手教程弹窗: View {
             .background(Color(.systemBackground))
             .cornerRadius(16)
             .padding(.horizontal, 16)
-            .padding(.vertical, 40)
+            .padding(.vertical, 20) // 20pt垂直间距，弹窗居中显示，避免上下空白过多
         }
     }
 
