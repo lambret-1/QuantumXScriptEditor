@@ -113,18 +113,40 @@ $done($request);
 // ======================
 // 功能：修改接口返回的JSON数据
 // 场景：修改会员状态、余额等字段
+// 容错等级：四级（空值保护/数据校验/异常隔离/兜底返回）
 // ======================
-// 解析响应体
-let body = JSON.parse($response.body);
-// 示例：将会员状态改为true
-if (body.data) {
-    body.data.isVip = true;
-    body.data.vipExpire = "2099-12-31";
+// 保存原始响应体作为终极兜底
+const 原始响应体 = $response.body;
+
+try {
+    // 【高级容错】安全解析JSON，解析失败直接返回原始响应
+    let body = {};
+    try {
+        body = JSON.parse($response.body);
+    } catch (解析错误) {
+        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        $done({ body: 原始响应体 });
+        return;
+    }
+
+    // 【基础容错】空值保护：检查data字段存在且为对象
+    if (body.data && typeof body.data === "object") {
+        // 【进阶容错】类型转换：确保字段类型正确
+        body.data.isVip = true;
+        body.data.vipExpire = String(body.data.vipExpire || "2099-12-31");
+    } else {
+        $console.log("[降级] body.data不存在或非对象，跳过修改");
+    }
+
+    // 序列化返回
+    $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    // 【终极容错】兜底返回：任何异常都返回原始响应，保证APP正常接收
+    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    $done({ body: 原始响应体 });
 }
-// 序列化并写回响应
-$done({ body: JSON.stringify(body) });
 """,
-            用途说明: "解析响应JSON并修改指定字段",
+            用途说明: "解析响应JSON并修改指定字段（含四级容错）",
             使用场景: "修改接口返回的会员状态、用户信息等"
         ),
         圈X代码模板(
@@ -134,13 +156,30 @@ $done({ body: JSON.stringify(body) });
 // ======================
 // 功能：全局替换响应体中的文本
 // 场景：替换页面中的特定文字
+// 容错等级：四级（空值保护/数据校验/异常隔离/兜底返回）
 // ======================
-let body = $response.body;
-// 将所有"旧文本"替换为"新文本"
-body = body.replace(/旧文本/g, "新文本");
-$done({ body: body });
+const 原始响应体 = $response.body;
+
+try {
+    // 【基础容错】类型转换：确保响应体为字符串
+    let body = String($response.body || "");
+
+    // 【进阶容错】数据校验：响应体非空才执行替换
+    if (body.length > 0) {
+        // 将所有"旧文本"替换为"新文本"
+        body = body.replace(/旧文本/g, "新文本");
+    } else {
+        $console.log("[降级] 响应体为空，跳过替换");
+    }
+
+    $done({ body: body });
+} catch (错误) {
+    // 【终极容错】兜底返回
+    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """,
-            用途说明: "对响应体做文本全局替换",
+            用途说明: "对响应体做文本全局替换（含四级容错）",
             使用场景: "修改网页文案、替换广告内容等"
         ),
         圈X代码模板(
@@ -150,6 +189,7 @@ $done({ body: body });
 // ======================
 // 功能：阻断请求，返回空响应
 // 场景：屏蔽广告或无用接口
+// 容错说明：直接返回固定空响应，天然不会崩溃
 // ======================
 $done({ body: "{}", statusCode: 200 });
 """,
@@ -163,41 +203,58 @@ $done({ body: "{}", statusCode: 200 });
 // ======================
 // 功能：删除响应JSON中的广告字段
 // 场景：接口返回数据中混入广告位，需要剔除
+// 容错等级：四级（空值保护/数据校验/异常隔离/兜底返回）
 // ======================
-// 解析响应体为JSON对象
-let body = JSON.parse($response.body);
+const 原始响应体 = $response.body;
 
-// ====== 配置区：在这里填写要删除的广告字段路径 ======
-// 支持多级路径，用点号分隔，例如 "data.banner" 表示 body.data.banner
-const 要删除的字段 = [
-    "data.ad",           // 示例：删除 data 下的 ad 字段
-    "data.banner",       // 示例：删除 data 下的 banner 字段
-    "data.popup_ad"      // 示例：删除 data 下的 popup_ad 弹窗广告
-];
-// ==================================================
-
-// 递归删除指定路径的字段
-function 删除字段(obj, 路径) {
-    const 部分 = 路径.split(".");
-    let 当前 = obj;
-    // 先导航到父级
-    for (let i = 0; i < 部分.length - 1; i++) {
-        if (当前[部分[i]] === undefined || 当前[部分[i]] === null) return;
-        当前 = 当前[部分[i]];
+try {
+    // 【高级容错】安全解析JSON
+    let body = {};
+    try {
+        body = JSON.parse($response.body);
+    } catch (解析错误) {
+        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        $done({ body: 原始响应体 });
+        return;
     }
-    // 删除最终字段
-    delete 当前[部分[部分.length - 1]];
+
+    // ====== 配置区：在这里填写要删除的广告字段路径 ======
+    const 要删除的字段 = [
+        "data.ad",           // 示例：删除 data 下的 ad 字段
+        "data.banner",       // 示例：删除 data 下的 banner 字段
+        "data.popup_ad"      // 示例：删除 data 下的 popup_ad 弹窗广告
+    ];
+    // ==================================================
+
+    // 【基础容错】递归删除指定路径的字段（带空值保护）
+    function 删除字段(obj, 路径) {
+        if (!obj || typeof obj !== "object") return;
+        const 部分 = String(路径).split(".");
+        let 当前 = obj;
+        for (let i = 0; i < 部分.length - 1; i++) {
+            if (当前[部分[i]] === undefined || 当前[部分[i]] === null || typeof 当前[部分[i]] !== "object") return;
+            当前 = 当前[部分[i]];
+        }
+        delete 当前[部分[部分.length - 1]];
+    }
+
+    // 【进阶容错】遍历删除所有配置的广告字段（单个失败不影响其他）
+    要删除的字段.forEach(function(路径) {
+        try {
+            删除字段(body, 路径);
+        } catch (字段错误) {
+            $console.log("[降级] 删除字段失败(" + 路径 + "): " + 字段错误.message);
+        }
+    });
+
+    $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    // 【终极容错】兜底返回
+    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    $done({ body: 原始响应体 });
 }
-
-// 遍历删除所有配置的广告字段
-要删除的字段.forEach(function(路径) {
-    删除字段(body, 路径);
-});
-
-// 序列化回字符串并写回响应
-$done({ body: JSON.stringify(body) });
 """,
-            用途说明: "从JSON响应中删除指定路径的广告字段（支持多级嵌套）",
+            用途说明: "从JSON响应中删除指定路径的广告字段（含四级容错）",
             使用场景: "接口返回的JSON中包含ad、banner等广告字段，需要剔除后再展示"
         ),
         圈X代码模板(
@@ -207,49 +264,71 @@ $done({ body: JSON.stringify(body) });
 // ======================
 // 功能：从响应JSON的数组中过滤掉广告项
 // 场景：信息流、推荐列表中混入广告卡片，需要剔除
+// 容错等级：四级（空值保护/数据校验/异常隔离/兜底返回）
 // ======================
-// 解析响应体
-let body = JSON.parse($response.body);
+const 原始响应体 = $response.body;
 
-// ====== 配置区 ======
-// 广告列表所在的数组路径，用点号分隔
-// 例如 "data.list" 表示 body.data.list 数组
-const 数组路径 = "data.list";
-// 判断一项是否为广告的条件（满足任一即视为广告）
-// type 字段等于 "ad" 或 "advert"，或 has_ad 字段为 true
-function 是否为广告(项) {
-    return 项.type === "ad"
-        || 项.type === "advert"
-        || 项.has_ad === true
-        || 项.is_ad === true
-        || (项.ad_id !== undefined && 项.ad_id !== null);
-}
-// ====================
-
-// 导航到数组
-const 部分 = 数组路径.split(".");
-let 父级 = body;
-let 数组 = body;
-for (let i = 0; i < 部分.length - 1; i++) {
-    if (父级[部分[i]] === undefined) {
-        // 路径不存在，原样返回
-        $done();
+try {
+    // 【高级容错】安全解析JSON
+    let body = {};
+    try {
+        body = JSON.parse($response.body);
+    } catch (解析错误) {
+        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        $done({ body: 原始响应体 });
         return;
     }
-    父级 = 父级[部分[i]];
-}
-数组 = 父级[部分[部分.length - 1]];
 
-// 过滤掉广告项，保留非广告内容
-if (Array.isArray(数组)) {
-    const 过滤后 = 数组.filter(function(项) {
-        return !是否为广告(项);
-    });
-    父级[部分[部分.length - 1]] = 过滤后;
-}
+    // ====== 配置区 ======
+    const 数组路径 = "data.list";
+    // ====================
 
-// 写回响应
-$done({ body: JSON.stringify(body) });
+    // 【基础容错】判断一项是否为广告（带类型保护）
+    function 是否为广告(项) {
+        if (!项 || typeof 项 !== "object") return false;
+        return 项.type === "ad"
+            || 项.type === "advert"
+            || 项.has_ad === true
+            || 项.is_ad === true
+            || (项.ad_id !== undefined && 项.ad_id !== null);
+    }
+
+    // 【基础容错】安全导航到数组（空值保护）
+    const 部分 = String(数组路径).split(".");
+    let 父级 = body;
+    let 路径有效 = true;
+    for (let i = 0; i < 部分.length - 1; i++) {
+        if (父级[部分[i]] === undefined || 父级[部分[i]] === null || typeof 父级[部分[i]] !== "object") {
+            $console.log("[降级] 数组路径不存在: " + 数组路径);
+            路径有效 = false;
+            break;
+        }
+        父级 = 父级[部分[i]];
+    }
+
+    // 【进阶容错】过滤掉广告项（数组类型校验）
+    if (路径有效) {
+        const 数组 = 父级[部分[部分.length - 1]];
+        if (Array.isArray(数组)) {
+            const 过滤后 = 数组.filter(function(项) {
+                try {
+                    return !是否为广告(项);
+                } catch (项错误) {
+                    return true; // 单项判断异常时保留该项
+                }
+            });
+            父级[部分[部分.length - 1]] = 过滤后;
+        } else {
+            $console.log("[降级] 目标字段不是数组，跳过过滤");
+        }
+    }
+
+    $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    // 【终极容错】兜底返回
+    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """,
             用途说明: "从JSON响应的数组列表中过滤掉广告项（按type/is_ad等字段判断）",
             使用场景: "信息流、文章列表、视频推荐等接口中混入广告卡片，需要剔除广告项"
@@ -261,44 +340,65 @@ $done({ body: JSON.stringify(body) });
 // ======================
 // 功能：批量删除数组中每一项的广告相关字段
 // 场景：列表中每一项都带有广告标记字段，需要统一清除
+// 容错等级：四级（空值保护/数据校验/异常隔离/兜底返回）
 // ======================
-let body = JSON.parse($response.body);
+const 原始响应体 = $response.body;
 
-// ====== 配置区 ======
-// 数组路径
-const 数组路径 = "data.list";
-// 每个数组项中要删除的广告字段名列表
-const 要删除的字段名 = [
-    "ad_url",        // 广告跳转链接
-    "ad_image",      // 广告图片
-    "ad_title",      // 广告标题
-    "ad_track",      // 广告追踪
-    "is_ad",         // 是否广告标记
-    "ad_id"          // 广告ID
-];
-// ====================
+try {
+    // 【高级容错】安全解析JSON
+    let body = {};
+    try {
+        body = JSON.parse($response.body);
+    } catch (解析错误) {
+        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        $done({ body: 原始响应体 });
+        return;
+    }
 
-// 导航到数组
-const 部分 = 数组路径.split(".");
-let 父级 = body;
-for (let i = 0; i < 部分.length - 1; i++) {
-    if (父级[部分[i]] === undefined) { $done(); return; }
-    父级 = 父级[部分[i]];
+    // ====== 配置区 ======
+    const 数组路径 = "data.list";
+    const 要删除的字段名 = [
+        "ad_url", "ad_image", "ad_title", "ad_track", "is_ad", "ad_id"
+    ];
+    // ====================
+
+    // 【基础容错】安全导航到数组
+    const 部分 = String(数组路径).split(".");
+    let 父级 = body;
+    let 路径有效 = true;
+    for (let i = 0; i < 部分.length - 1; i++) {
+        if (父级[部分[i]] === undefined || 父级[部分[i]] === null || typeof 父级[部分[i]] !== "object") {
+            $console.log("[降级] 数组路径不存在: " + 数组路径);
+            路径有效 = false;
+            break;
+        }
+        父级 = 父级[部分[i]];
+    }
+
+    // 【进阶容错】遍历数组批量删除字段（单项异常不影响其他）
+    if (路径有效) {
+        const 数组 = 父级[部分[部分.length - 1]];
+        if (Array.isArray(数组)) {
+            数组.forEach(function(项) {
+                if (项 && typeof 项 === "object") {
+                    要删除的字段名.forEach(function(字段名) {
+                        try { delete 项[字段名]; } catch (e) {}
+                    });
+                }
+            });
+        } else {
+            $console.log("[降级] 目标字段不是数组，跳过批量删除");
+        }
+    }
+
+    $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    // 【终极容错】兜底返回
+    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    $done({ body: 原始响应体 });
 }
-const 数组 = 父级[部分[部分.length - 1]];
-
-// 遍历数组，批量删除每个项的广告字段
-if (Array.isArray(数组)) {
-    数组.forEach(function(项) {
-        要删除的字段名.forEach(function(字段名) {
-            delete 项[字段名];
-        });
-    });
-}
-
-$done({ body: JSON.stringify(body) });
 """,
-            用途说明: "批量删除数组中每一项的多个广告相关字段",
+            用途说明: "批量删除数组中每一项的多个广告相关字段（含四级容错）",
             使用场景: "列表接口中每一项都带有ad_url、ad_image等广告字段，需要统一清除"
         ),
         圈X代码模板(
@@ -308,29 +408,48 @@ $done({ body: JSON.stringify(body) });
 // ======================
 // 功能：从HTML响应中移除广告相关DOM节点
 // 场景：网页中包含广告div/iframe，需要在加载前剔除
+// 容错等级：四级（空值保护/数据校验/异常隔离/兜底返回）
 // ======================
-let html = $response.body;
+const 原始响应体 = $response.body;
 
-// ====== 配置区：要移除的广告选择器 ======
-// 按class、id、标签名等匹配，使用正则全局替换
-const 广告匹配规则 = [
-    /<div[^>]*class="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/div>/gi,   // class含ad的div
-    /<div[^>]*id="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/div>/gi,     // id含ad的div
-    /<iframe[^>]*class="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/iframe>/gi, // 广告iframe
-    /<ins[^>]*class="[^"]*adsbygoogle[^"]*"[^>]*>[\\s\\S]*?<\\/ins>/gi, // Google广告
-    /<script[^>]*src="[^"]*ads[^"]*"[^>]*>[\\s\\S]*?<\\/script>/gi      // 广告JS
-];
-// ==========================================
+try {
+    // 【基础容错】类型转换：确保响应体为字符串
+    let html = String($response.body || "");
 
-// 逐条移除广告节点
-广告匹配规则.forEach(function(正则) {
-    html = html.replace(正则, "<!-- 广告已移除 -->");
-});
+    // 【进阶容错】数据校验：空响应直接返回
+    if (html.length === 0) {
+        $console.log("[降级] 响应体为空，跳过HTML处理");
+        $done({ body: 原始响应体 });
+        return;
+    }
 
-// 写回响应
-$done({ body: html });
+    // ====== 配置区：要移除的广告选择器 ======
+    const 广告匹配规则 = [
+        /<div[^>]*class="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/div>/gi,
+        /<div[^>]*id="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/div>/gi,
+        /<iframe[^>]*class="[^"]*ad[^"]*"[^>]*>[\\s\\S]*?<\\/iframe>/gi,
+        /<ins[^>]*class="[^"]*adsbygoogle[^"]*"[^>]*>[\\s\\S]*?<\\/ins>/gi,
+        /<script[^>]*src="[^"]*ads[^"]*"[^>]*>[\\s\\S]*?<\\/script>/gi
+    ];
+    // ==========================================
+
+    // 【高级容错】逐条移除广告节点（单条正则异常不影响其他）
+    广告匹配规则.forEach(function(正则) {
+        try {
+            html = html.replace(正则, "<!-- 广告已移除 -->");
+        } catch (正则错误) {
+            $console.log("[降级] 正则替换异常: " + 正则错误.message);
+        }
+    });
+
+    $done({ body: html });
+} catch (错误) {
+    // 【终极容错】兜底返回
+    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """,
-            用途说明: "从HTML响应中正则匹配并移除广告DOM节点（div/iframe/script等）",
+            用途说明: "从HTML响应中正则匹配并移除广告DOM节点（含四级容错）",
             使用场景: "网页中包含广告位div、Google AdSense、广告iframe等需要剔除"
         ),
         圈X代码模板(
@@ -340,35 +459,43 @@ $done({ body: html });
 // ======================
 // 功能：检测响应中是否包含广告关键词，包含则返回空响应
 // 场景：无法精确匹配广告字段时，用关键词粗筛屏蔽
+// 容错等级：四级（空值保护/数据校验/异常隔离/兜底返回）
 // ======================
-const 响应文本 = $response.body;
+const 原始响应体 = $response.body;
 
-// ====== 配置区：广告关键词列表 ======
-const 广告关键词 = [
-    "广告位",
-    "ad_slot",
-    "advertisement",
-    "推广",
-    "sponsored"
-];
-// ====================================
+try {
+    // 【基础容错】类型转换：确保响应体为字符串
+    const 响应文本 = String($response.body || "");
 
-// 检测是否包含任一广告关键词
-const 包含广告 = 广告关键词.some(function(关键词) {
-    return 响应文本.indexOf(关键词) !== -1;
-});
+    // ====== 配置区：广告关键词列表 ======
+    const 广告关键词 = ["广告位", "ad_slot", "advertisement", "推广", "sponsored"];
+    // ====================================
 
-// 根据检测结果决定响应体
-let 最终响应体 = 响应文本;
-if (包含广告) {
-    // 包含广告关键词，返回空响应阻断
-    最终响应体 = "{}";
-    $notify("广告拦截", "", "已屏蔽含广告关键词的响应");
+    // 【进阶容错】检测是否包含任一广告关键词（单个关键词异常不影响其他）
+    let 包含广告 = false;
+    try {
+        包含广告 = 广告关键词.some(function(关键词) {
+            return 响应文本.indexOf(关键词) !== -1;
+        });
+    } catch (检测错误) {
+        $console.log("[降级] 关键词检测异常: " + 检测错误.message);
+    }
+
+    // 根据检测结果决定响应体
+    let 最终响应体 = 响应文本;
+    if (包含广告) {
+        最终响应体 = "{}";
+        try { $notify("广告拦截", "", "已屏蔽含广告关键词的响应"); } catch (e) {}
+    }
+
+    $done({ body: 最终响应体 });
+} catch (错误) {
+    // 【终极容错】兜底返回
+    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    $done({ body: 原始响应体 });
 }
-
-$done({ body: 最终响应体 });
 """,
-            用途说明: "检测响应中是否包含广告关键词，包含则返回空响应阻断",
+            用途说明: "检测响应中是否包含广告关键词，包含则返回空响应阻断（含四级容错）",
             使用场景: "无法精确匹配广告字段时，用关键词粗筛屏蔽疑似广告响应"
         ),
 
@@ -449,18 +576,43 @@ $done();
 // ======================
 // 功能：根据条件判断是否弹出通知
 // 场景：监控特定字段变化时提醒
+// 容错等级：四级（空值保护/数据校验/异常隔离/兜底返回）
 // ======================
-let body = JSON.parse($response.body);
-if (body.code === 0) {
-    // 成功时不通知
-    $done();
-} else {
-    // 失败时弹窗提醒
-    $notify("接口返回错误", "错误码", body.code + " - " + (body.msg || ""));
+const 原始响应体 = $response.body;
+
+try {
+    // 【高级容错】安全解析JSON
+    let body = {};
+    try {
+        body = JSON.parse($response.body);
+    } catch (解析错误) {
+        $console.log("[容错] JSON解析失败: " + 解析错误.message);
+        $done();
+        return;
+    }
+
+    // 【基础容错】空值保护与类型转换
+    const 错误码 = Number(body.code || 0);
+    if (错误码 === 0) {
+        // 成功时不通知
+        $done();
+    } else {
+        // 失败时弹窗提醒
+        const 错误信息 = String(body.msg || "未知错误");
+        try {
+            $notify("接口返回错误", "错误码", 错误码 + " - " + 错误信息);
+        } catch (通知错误) {
+            $console.log("[降级] 通知发送失败: " + 通知错误.message);
+        }
+        $done();
+    }
+} catch (错误) {
+    // 【终极容错】兜底返回
+    $console.log("[兜底] 脚本执行异常: " + 错误.message);
     $done();
 }
 """,
-            用途说明: "根据响应条件决定是否弹出通知",
+            用途说明: "根据响应条件决定是否弹出通知（含四级容错）",
             使用场景: "监控接口异常、特定状态变化时提醒用户"
         ),
 

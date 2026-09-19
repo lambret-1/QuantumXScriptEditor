@@ -387,13 +387,20 @@ enum 智能分析服务 {
                 说明: "未识别到特定字段，使用通用模板手动修改",
                 代码: """
 // ======================
-// 通用响应修改模板
+// 通用响应修改模板（含四级容错）
 // 请根据实际接口结构修改下方代码
 // ======================
-let body = JSON.parse($response.body);
-// TODO: 在这里修改响应字段
-// 例如：body.data.isVip = true;
-$done({ body: JSON.stringify(body) });
+const 原始响应体 = $response.body;
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+    // TODO: 在这里修改响应字段
+    // 例如：if (body.data) { body.data.isVip = true; }
+    $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """,
                 分类: "通用"
             ))
@@ -587,13 +594,22 @@ $done({ body: JSON.stringify(body) });
         let 最终字段 = 路径部分.last ?? 字段路径
         return """
 // ======================
-// 功能：解锁会员状态
+// 功能：解锁会员状态（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-let body = JSON.parse($response.body);
-\(导航代码)// 将会员状态设为true
-\(父级路径).\(最终字段) = true;
+const 原始响应体 = $response.body;
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+\(导航代码)// 【基础容错】空值保护后修改字段
+if (\(父级路径) !== undefined && \(父级路径) !== null) {
+    \(父级路径).\(最终字段) = true;
+}
 $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """
     }
 
@@ -620,13 +636,21 @@ $done({ body: JSON.stringify(body) });
 
         return """
 // ======================
-// 功能：会员永久有效
+// 功能：会员永久有效（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-let body = JSON.parse($response.body);
-\(导航代码)// 将会员到期时间设为2099年
-\(父级路径).\(最终字段) = \(永久值);
+const 原始响应体 = $response.body;
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+\(导航代码)if (\(父级路径) !== undefined && \(父级路径) !== null) {
+    \(父级路径).\(最终字段) = \(永久值);
+}
 $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """
     }
 
@@ -648,13 +672,21 @@ $done({ body: JSON.stringify(body) });
 
         return """
 // ======================
-// 功能：提升会员等级
+// 功能：提升会员等级（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-let body = JSON.parse($response.body);
-\(导航代码)// 将会员等级设为最高级
-\(父级路径).\(最终字段) = \(最高值);
+const 原始响应体 = $response.body;
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+\(导航代码)if (\(父级路径) !== undefined && \(父级路径) !== null) {
+    \(父级路径).\(最终字段) = \(最高值);
+}
 $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """
     }
 
@@ -663,75 +695,85 @@ $done({ body: JSON.stringify(body) });
         let 字段列表文本 = 字段路径列表.map { "\"\($0)\"" }.joined(separator: ",\n    ")
         return """
 // ======================
-// 功能：去广告（删除识别到的广告字段）
+// 功能：去广告（删除识别到的广告字段，含四级容错）
 // 识别到\(字段路径列表.count)个广告字段
 // ======================
-let body = JSON.parse($response.body);
+const 原始响应体 = $response.body;
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
 
-// 要删除的广告字段路径列表
-const 要删除的字段 = [
+    const 要删除的字段 = [
     \(字段列表文本)
-];
+    ];
 
-// 递归删除指定路径的字段
-function 删除字段(obj, 路径) {
-    const 部分 = 路径.split(".");
-    let 当前 = obj;
-    for (let i = 0; i < 部分.length - 1; i++) {
-        if (当前[部分[i]] === undefined || 当前[部分[i]] === null) return;
-        当前 = 当前[部分[i]];
+    function 删除字段(obj, 路径) {
+        if (!obj || typeof obj !== "object") return;
+        const 部分 = String(路径).split(".");
+        let 当前 = obj;
+        for (let i = 0; i < 部分.length - 1; i++) {
+            if (当前[部分[i]] === undefined || 当前[部分[i]] === null || typeof 当前[部分[i]] !== "object") return;
+            当前 = 当前[部分[i]];
+        }
+        delete 当前[部分[部分.length - 1]];
     }
-    delete 当前[部分[部分.length - 1]];
+
+    要删除的字段.forEach(function(路径) {
+        try { 删除字段(body, 路径); } catch (e) {}
+    });
+
+    $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done({ body: 原始响应体 });
 }
-
-// 遍历删除所有广告字段
-要删除的字段.forEach(function(路径) {
-    删除字段(body, 路径);
-});
-
-$done({ body: JSON.stringify(body) });
 """
     }
 
     /// 生成去广告数组成员模板
     private static func 生成去广告数组成员模板(数组路径: String) -> String {
-        let 路径部分 = 数组路径.components(separatedBy: ".")
-        var 导航代码 = ""
-        var 父级路径 = "body"
-        for i in 0..<(路径部分.count - 1) {
-            let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined) { $done(); return; }\n"
-            父级路径 += ".\(字段名)"
-        }
-        let 数组名 = 路径部分.last ?? 数组路径
-
         return """
 // ======================
-// 功能：去广告数组（从列表中过滤广告项）
+// 功能：去广告数组（从列表中过滤广告项，含四级容错）
 // 识别数组：\(数组路径)
 // ======================
-let body = JSON.parse($response.body);
-\(导航代码)const 列表 = \(父级路径).\(数组名);
+const 原始响应体 = $response.body;
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
 
-// 判断一项是否为广告
-function 是否为广告(项) {
-    return 项.isAd === true
-        || 项.is_ad === true
-        || 项.hasAd === true
-        || 项.ad !== undefined
-        || 项.ad_id !== undefined
-        || 项.type === "ad"
-        || 项.type === "advert";
+    function 是否为广告(项) {
+        if (!项 || typeof 项 !== "object") return false;
+        return 项.isAd === true || 项.is_ad === true || 项.hasAd === true
+            || 项.ad !== undefined || 项.ad_id !== undefined
+            || 项.type === "ad" || 项.type === "advert";
+    }
+
+    // 安全导航到数组
+    const 部分 = "\(数组路径)".split(".");
+    let 父级 = body;
+    let 路径有效 = true;
+    for (let i = 0; i < 部分.length - 1; i++) {
+        if (父级[部分[i]] === undefined || 父级[部分[i]] === null || typeof 父级[部分[i]] !== "object") {
+            路径有效 = false; break;
+        }
+        父级 = 父级[部分[i]];
+    }
+
+    if (路径有效) {
+        const 列表 = 父级[部分[部分.length - 1]];
+        if (Array.isArray(列表)) {
+            父级[部分[部分.length - 1]] = 列表.filter(function(项) {
+                try { return !是否为广告(项); } catch (e) { return true; }
+            });
+        }
+    }
+
+    $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done({ body: 原始响应体 });
 }
-
-// 过滤掉广告项
-if (Array.isArray(列表)) {
-    \(父级路径).\(数组名) = 列表.filter(function(项) {
-        return !是否为广告(项);
-    });
-}
-
-$done({ body: JSON.stringify(body) });
 """
     }
 
@@ -743,45 +785,48 @@ $done({ body: JSON.stringify(body) });
         let 类型映射 = 用户字段.map { "case \"\($0.字段路径)\": return \"\(类型文本($0.类型))\"" }.joined(separator: "\n        ")
         return """
 // ======================
-// 功能：导出用户核心信息
+// 功能：导出用户核心信息（含四级容错）
 // 识别到\(用户字段.count)项用户核心字段，通过通知弹窗展示
 // ======================
-let body = JSON.parse($response.body);
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done(); return; }
 
-// 要导出的用户字段路径列表
-const 用户字段 = [
+    const 用户字段 = [
     \(字段列表文本)
-];
+    ];
 
-// 安全读取嵌套字段
-function 读取字段(obj, 路径) {
-    return 路径.split(".").reduce(function(o, k) {
-        return (o || {})[k];
-    }, obj);
-}
+    function 读取字段(obj, 路径) {
+        return String(路径).split(".").reduce(function(o, k) {
+            return (o || {})[k];
+        }, obj);
+    }
 
-// 字段类型名称
-function 字段类型(路径) {
-    switch (路径) {
+    function 字段类型(路径) {
+        switch (路径) {
         \(类型映射)
         default: return "其他";
+        }
     }
-}
 
-// 收集用户信息
-let 信息列表 = [];
-用户字段.forEach(function(路径) {
-    const 值 = 读取字段(body, 路径);
-    if (值 !== undefined && 值 !== null) {
-        信息列表.push(字段类型(路径) + "：" + String(值));
+    let 信息列表 = [];
+    用户字段.forEach(function(路径) {
+        try {
+            const 值 = 读取字段(body, 路径);
+            if (值 !== undefined && 值 !== null) {
+                信息列表.push(字段类型(路径) + "：" + String(值));
+            }
+        } catch (e) {}
+    });
+
+    if (信息列表.length > 0) {
+        try { $notify("用户核心信息", "共" + 信息列表.length + "项", 信息列表.join("\\n")); } catch (e) {}
     }
-});
-
-// 通过通知展示用户核心信息
-if (信息列表.length > 0) {
-    $notify("用户核心信息", "共" + 信息列表.length + "项", 信息列表.join("\\n"));
+    $done();
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done();
 }
-$done();
 """
     }
 
@@ -806,12 +851,19 @@ $done();
         }
         return """
 // ======================
-// 功能：隐私保护（隐藏手机号和邮箱）
+// 功能：隐私保护（隐藏手机号和邮箱，含四级容错）
 // 识别到\(隐私字段.count)个隐私字段，替换为星号掩码
 // ======================
-let body = JSON.parse($response.body);
+const 原始响应体 = $response.body;
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
 
 \(处理代码)$done({ body: JSON.stringify(body) });
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """
     }
 
@@ -828,13 +880,21 @@ let body = JSON.parse($response.body);
         let 最终字段 = 路径部分.last ?? 字段路径
         return """
 // ======================
-// 功能：修改用户昵称
+// 功能：修改用户昵称（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-let body = JSON.parse($response.body);
-\(导航代码)// 修改用户昵称为自定义名称
-\(父级路径).\(最终字段) = "新昵称";
+const 原始响应体 = $response.body;
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+\(导航代码)if (\(父级路径) !== undefined && \(父级路径) !== null) {
+    \(父级路径).\(最终字段) = "新昵称";
+}
 $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """
     }
 
@@ -854,13 +914,21 @@ $done({ body: JSON.stringify(body) });
         let 新值 = 是否数字 ? "999999" : "\"999999\""
         return """
 // ======================
-// 功能：修改积分余额
+// 功能：修改积分余额（含四级容错）
 // 识别字段：\(字段路径)（当前值：\(当前值)）
 // ======================
-let body = JSON.parse($response.body);
-\(导航代码)// 修改积分/余额为指定数值
-\(父级路径).\(最终字段) = \(新值);
+const 原始响应体 = $response.body;
+try {
+    let body = {};
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
+\(导航代码)if (\(父级路径) !== undefined && \(父级路径) !== null) {
+    \(父级路径).\(最终字段) = \(新值);
+}
 $done({ body: JSON.stringify(body) });
+} catch (错误) {
+    $console.log("[兜底] 脚本异常: " + 错误.message);
+    $done({ body: 原始响应体 });
+}
 """
     }
 
