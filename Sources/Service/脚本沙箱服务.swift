@@ -76,13 +76,56 @@ final class 脚本沙箱服务 {
     /// 注入 $done 模拟对象
     private func 注入完成对象() {
         let 完成函数: @convention(block) (Any?) -> Void = { [weak self] 返回值 in
-            if let 值 = 返回值 {
-                self?.追加输出("[完成] 脚本返回：\(String(describing: 值))\n")
+            guard let 自身 = self else { return }
+            if let 字典 = 返回值 as? [String: Any] {
+                自身.追加输出("[完成] 脚本执行完成\n")
+                // 提取并展示状态码
+                if let 状态码 = 字典["statusCode"] as? Int {
+                    自身.追加输出("[状态码] \(状态码)\n")
+                } else if let 状态码 = 字典["status"] as? Int {
+                    自身.追加输出("[状态码] \(状态码)\n")
+                }
+                // 提取并展示响应头（如有修改）
+                if let 响应头 = 字典["headers"] as? [String: Any], !响应头.isEmpty {
+                    let 头文本 = 响应头.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+                    自身.追加输出("[响应头]\n\(头文本)\n")
+                }
+                // 提取并格式化展示响应体（核心：用户最关心修改后的body）
+                if let 响应体 = 字典["body"] as? String {
+                    自身.展示格式化响应体(响应体)
+                } else if let 响应体 = 字典["body"] {
+                    // body不是字符串时，直接描述
+                    自身.追加输出("[修改后响应体] \(String(describing: 响应体))\n")
+                } else {
+                    自身.追加输出("[修改后响应体] （空）\n")
+                }
+            } else if let 值 = 返回值 {
+                // 非字典返回值（如直接传$request），原样展示
+                自身.追加输出("[完成] 脚本返回：\(String(describing: 值))\n")
             } else {
-                self?.追加输出("[完成] 脚本执行结束（无返回值）\n")
+                自身.追加输出("[完成] 脚本执行结束（无返回值，原样放行）\n")
             }
         }
         上下文.setObject(完成函数, forKeyedSubscript: "$done" as NSString)
+    }
+
+    /// 格式化展示响应体：尝试JSON美化，失败则原样显示
+    private func 展示格式化响应体(_ 响应体: String) {
+        // 尝试解析为JSON并美化输出
+        if let 数据 = 响应体.data(using: .utf8),
+           let 对象 = try? JSONSerialization.jsonObject(with: 数据),
+           let 美化数据 = try? JSONSerialization.data(withJSONObject: 对象, options: [.prettyPrinted]),
+           let 美化文本 = String(data: 美化数据, encoding: .utf8) {
+            追加输出("[修改后响应体]\n\(美化文本)\n")
+        } else {
+            // 非JSON或解析失败，原样显示
+            if 响应体.count > 2000 {
+                let 截断 = String(响应体.prefix(2000))
+                追加输出("[修改后响应体]（共\(响应体.count)字符，仅显示前2000字符）\n\(截断)\n...\n")
+            } else {
+                追加输出("[修改后响应体]\n\(响应体)\n")
+            }
+        }
     }
 
     /// 注入 $persistentStore 模拟对象（内存级，重启沙箱丢失）
@@ -241,7 +284,9 @@ final class 脚本沙箱服务 {
         if !请求头.isEmpty {
             追加输出("请求头：\(请求头.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))\n")
         }
-        追加输出("模拟响应体：\(模拟响应体)\n")
+        // 输入响应体（脚本修改前的原始数据）
+        追加输出("[输入响应体]\n\(模拟响应体)\n")
+        追加输出("---------- 脚本执行 ----------\n")
 
         // 超时保护：在后台队列执行，超时后提示
         // 【关键修复】将用户代码包装在立即执行函数(IIFE)中，模拟圈X真实运行环境

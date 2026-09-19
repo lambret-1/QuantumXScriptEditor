@@ -372,17 +372,25 @@ struct 彩色输出视图: View {
             return Color(UIColor.systemBlue)
         } else if 行.hasPrefix("[网络请求]") || 行.hasPrefix("[请求头]") || 行.hasPrefix("[请求体]") {
             return .orange
-        } else if 行.hasPrefix("[响应头]") || 行.hasPrefix("[响应体]") || 行.hasPrefix("[网络响应]") {
+        } else if 行.hasPrefix("[响应头]") || 行.hasPrefix("[响应体]") || 行.hasPrefix("[网络响应]") || 行.hasPrefix("[输入响应体]") {
             return Color(UIColor.systemTeal)
         } else if 行.hasPrefix("[完成]") {
             return .green
+        } else if 行.hasPrefix("[修改后响应体]") {
+            return Color(UIColor.systemGreen) // 修改后响应体用绿色，突出显示输出结果
+        } else if 行.hasPrefix("[状态码]") {
+            return Color(UIColor.systemOrange)
+        } else if 行.hasPrefix("[容错]") || 行.hasPrefix("[降级]") || 行.hasPrefix("[兜底]") {
+            return Color(UIColor.systemYellow) // 容错日志用黄色
+        } else if 行.hasPrefix("[日志]") {
+            return Color(UIColor.systemGray)
         } else if 行.hasPrefix("[耗时]") {
             return .purple
         } else if 行.hasPrefix("[已停止]") {
             return .red
         } else if 行.hasPrefix("==========") {
             return .secondary
-        } else if 行.hasPrefix("目标网址：") || 行.hasPrefix("请求方法：") || 行.hasPrefix("请求头：") {
+        } else if 行.hasPrefix("目标网址：") || 行.hasPrefix("请求方法：") || 行.hasPrefix("请求头：") || 行.hasPrefix("模拟响应体：") {
             return .secondary
         }
         return .primary
