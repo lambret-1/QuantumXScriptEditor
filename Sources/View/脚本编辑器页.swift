@@ -167,10 +167,10 @@ struct 工具栏视图: View {
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
-                    .foregroundColor(.teal)
+                    .foregroundColor(Color(UIColor.systemTeal))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .background(Color.teal.opacity(0.12)) // 淡青色背景，标识字体设置
+                    .background(Color(UIColor.systemTeal).opacity(0.12)) // 淡青色背景，标识字体设置
                     .cornerRadius(8)
                 }
                 // 一键删除代码按钮（字体大小键右边）
