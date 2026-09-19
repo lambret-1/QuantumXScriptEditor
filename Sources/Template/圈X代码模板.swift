@@ -91,17 +91,31 @@ $done($request);
 // ======================
 // 功能：修改POST请求体内容
 // 场景：修改提交的表单参数
+// 容错等级：三级（空值保护/异常隔离/兜底放行）
 // ======================
-// 解析请求体为JSON（假设是JSON格式）
-let body = JSON.parse($request.body);
-// 修改参数字段
-body.amount = 0.01;
-body.count = 1;
-// 序列化回字符串
-$request.body = JSON.stringify(body);
-$done($request);
+try {
+    // 【高级容错】安全解析请求体JSON，解析失败则原样放行
+    let body = {};
+    try {
+        body = JSON.parse($request.body);
+    } catch (解析错误) {
+        $console.log("[容错] 请求体JSON解析失败: " + 解析错误.message);
+        $done($request);
+        return;
+    }
+    // 修改参数字段
+    body.amount = 0.01;
+    body.count = 1;
+    // 序列化回字符串
+    $request.body = JSON.stringify(body);
+    $done($request);
+} catch (错误) {
+    // 【终极容错】任何异常都原样放行请求
+    $console.log("[兜底] 脚本执行异常: " + 错误.message);
+    $done($request);
+}
 """,
-            用途说明: "解析并修改POST请求的JSON参数",
+            用途说明: "解析并修改POST请求的JSON参数（含容错）",
             使用场景: "修改提交金额、数量等请求参数"
         ),
 
@@ -507,20 +521,32 @@ try {
 // ======================
 // 功能：发起GET异步请求并处理结果
 // 场景：脚本中调用第三方接口获取数据
+// 容错等级：三级（空值保护/异常隔离/兜底返回）
 // ======================
 $httpClient.get("https://httpbin.org/get", {}, function(error, response) {
     if (error) {
-        $notify("请求失败", "", error);
+        try { $notify("请求失败", "", String(error)); } catch (e) {}
         $done();
         return;
     }
-    // response.body 是响应体文本
-    let data = JSON.parse(response.body);
-    $notify("请求成功", "", "来源IP：" + data.origin);
+    // 【高级容错】安全解析响应JSON，解析失败则记录日志
+    let data = {};
+    try {
+        data = JSON.parse(response.body);
+    } catch (解析错误) {
+        $console.log("[容错] 响应JSON解析失败: " + 解析错误.message);
+        $done();
+        return;
+    }
+    try {
+        $notify("请求成功", "", "来源IP：" + String(data.origin || "未知"));
+    } catch (通知错误) {
+        $console.log("[降级] 通知发送失败: " + 通知错误.message);
+    }
     $done();
 });
 """,
-            用途说明: "使用$httpClient发起GET请求并在回调中处理",
+            用途说明: "使用$httpClient发起GET请求并在回调中处理（含容错）",
             使用场景: "脚本需要主动请求外部接口获取数据"
         ),
         圈X代码模板(
@@ -530,6 +556,7 @@ $httpClient.get("https://httpbin.org/get", {}, function(error, response) {
 // ======================
 // 功能：发起POST请求提交JSON数据
 // 场景：主动调用接口提交信息
+// 容错等级：三级（空值保护/异常隔离/兜底返回）
 // ======================
 const postData = JSON.stringify({key: "value"});
 $httpClient.post("https://httpbin.org/post", {
@@ -537,15 +564,24 @@ $httpClient.post("https://httpbin.org/post", {
     body: postData
 }, function(error, response) {
     if (error) {
-        $notify("提交失败", "", error);
+        try { $notify("提交失败", "", String(error)); } catch (e) {}
         $done();
         return;
     }
-    $notify("提交成功", "", response.body);
+    // 【高级容错】response.body可能很长，截断后通知
+    let 响应摘要 = String(response.body || "");
+    if (响应摘要.length > 200) {
+        响应摘要 = 响应摘要.substring(0, 200) + "...";
+    }
+    try {
+        $notify("提交成功", "", 响应摘要);
+    } catch (通知错误) {
+        $console.log("[降级] 通知发送失败: " + 通知错误.message);
+    }
     $done();
 });
 """,
-            用途说明: "使用$httpClient发起POST请求，带请求头和请求体",
+            用途说明: "使用$httpClient发起POST请求，带请求头和请求体（含容错）",
             使用场景: "需要主动提交数据到接口时使用"
         ),
 
@@ -557,16 +593,25 @@ $httpClient.post("https://httpbin.org/post", {
 // ======================
 // 功能：使用$persistentStore持久化存储数据
 // 场景：保存计数器、配置等需要跨脚本运行保留的数据
+// 容错等级：三级（空值保护/类型校验/兜底默认值）
 // ======================
-// 读取已保存的计数（不存在则为0）
-let count = parseInt($persistentStore.read("运行次数") || "0");
+// 【基础容错】读取已保存的计数，不存在或非数字则默认为0
+let 存储值 = $persistentStore.read("运行次数");
+let count = parseInt(存储值 || "0");
+if (isNaN(count)) {
+    count = 0; // 【降级】存储值不是有效数字时重置为0
+}
 count = count + 1;
 // 写入新的计数值
 $persistentStore.write(String(count), "运行次数");
-$notify("运行统计", "", "本脚本已运行" + count + "次");
+try {
+    $notify("运行统计", "", "本脚本已运行" + count + "次");
+} catch (通知错误) {
+    $console.log("[降级] 通知发送失败: " + 通知错误.message);
+}
 $done();
 """,
-            用途说明: "使用$persistentStore读写持久化数据",
+            用途说明: "使用$persistentStore读写持久化数据（含NaN容错）",
             使用场景: "保存运行次数、用户配置等跨运行保留的数据"
         ),
         圈X代码模板(
@@ -587,15 +632,15 @@ try {
         body = JSON.parse($response.body);
     } catch (解析错误) {
         $console.log("[容错] JSON解析失败: " + 解析错误.message);
-        $done();
+        $done({ body: 原始响应体 });
         return;
     }
 
     // 【基础容错】空值保护与类型转换
     const 错误码 = Number(body.code || 0);
     if (错误码 === 0) {
-        // 成功时不通知
-        $done();
+        // 成功时不通知，原样返回响应
+        $done({ body: 原始响应体 });
     } else {
         // 失败时弹窗提醒
         const 错误信息 = String(body.msg || "未知错误");
@@ -604,12 +649,12 @@ try {
         } catch (通知错误) {
             $console.log("[降级] 通知发送失败: " + 通知错误.message);
         }
-        $done();
+        $done({ body: 原始响应体 });
     }
 } catch (错误) {
     // 【终极容错】兜底返回
     $console.log("[兜底] 脚本执行异常: " + 错误.message);
-    $done();
+    $done({ body: 原始响应体 });
 }
 """,
             用途说明: "根据响应条件决定是否弹出通知（含四级容错）",
@@ -624,18 +669,33 @@ try {
 // ======================
 // 功能：解析URL中的查询参数
 // 场景：需要读取URL上的特定参数
+// 容错等级：三级（空值保护/异常隔离/兜底返回null）
 // ======================
 function getQueryParam(url, name) {
-    const regex = new RegExp("[?&]" + name + "=([^&]*)");
-    const match = url.match(regex);
-    return match ? decodeURIComponent(match[1]) : null;
+    try {
+        const regex = new RegExp("[?&]" + name + "=([^&]*)");
+        const match = String(url || "").match(regex);
+        if (!match) return null;
+        // 【高级容错】decodeURIComponent可能因非法编码抛出异常
+        try {
+            return decodeURIComponent(match[1]);
+        } catch (解码错误) {
+            $console.log("[降级] URL参数解码失败: " + 解码错误.message);
+            return match[1]; // 降级返回原始未解码值
+        }
+    } catch (错误) {
+        $console.log("[兜底] URL参数解析异常: " + 错误.message);
+        return null;
+    }
 }
 // 使用示例：获取URL中的token参数
 const token = getQueryParam($request.url, "token");
-$notify("URL参数", "token", token || "未找到");
+try {
+    $notify("URL参数", "token", token || "未找到");
+} catch (e) {}
 $done();
 """,
-            用途说明: "提供从URL中解析查询参数的工具函数",
+            用途说明: "提供从URL中解析查询参数的工具函数（含解码容错）",
             使用场景: "需要读取请求URL上的token、id等参数时"
         ),
         圈X代码模板(

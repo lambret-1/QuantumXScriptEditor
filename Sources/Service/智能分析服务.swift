@@ -584,10 +584,10 @@ try {
         var 导航代码 = ""
         var 父级路径 = "body"
 
-        // 生成安全导航代码
+        // 生成安全导航代码（同时检查undefined和null，防止null字段导致后续访问崩溃）
         for i in 0..<(路径部分.count - 1) {
             let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined) { \(父级路径).\(字段名) = {}; }\n"
+            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
             父级路径 += ".\(字段名)"
         }
 
@@ -620,7 +620,7 @@ $done({ body: JSON.stringify(body) });
         var 父级路径 = "body"
         for i in 0..<(路径部分.count - 1) {
             let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined) { \(父级路径).\(字段名) = {}; }\n"
+            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
             父级路径 += ".\(字段名)"
         }
         let 最终字段 = 路径部分.last ?? 字段路径
@@ -661,7 +661,7 @@ $done({ body: JSON.stringify(body) });
         var 父级路径 = "body"
         for i in 0..<(路径部分.count - 1) {
             let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined) { \(父级路径).\(字段名) = {}; }\n"
+            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
             父级路径 += ".\(字段名)"
         }
         let 最终字段 = 路径部分.last ?? 字段路径
@@ -788,9 +788,10 @@ try {
 // 功能：导出用户核心信息（含四级容错）
 // 识别到\(用户字段.count)项用户核心字段，通过通知弹窗展示
 // ======================
+const 原始响应体 = $response.body;
 try {
     let body = {};
-    try { body = JSON.parse($response.body); } catch (e) { $done(); return; }
+    try { body = JSON.parse($response.body); } catch (e) { $done({ body: 原始响应体 }); return; }
 
     const 用户字段 = [
     \(字段列表文本)
@@ -822,10 +823,10 @@ try {
     if (信息列表.length > 0) {
         try { $notify("用户核心信息", "共" + 信息列表.length + "项", 信息列表.join("\\n")); } catch (e) {}
     }
-    $done();
+    $done({ body: 原始响应体 });
 } catch (错误) {
     $console.log("[兜底] 脚本异常: " + 错误.message);
-    $done();
+    $done({ body: 原始响应体 });
 }
 """
     }
@@ -838,7 +839,7 @@ try {
             var 父级路径 = "body"
             var 导航代码 = ""
             for i in 0..<(路径部分.count - 1) {
-                导航代码 += "if (\(父级路径).\(路径部分[i]) !== undefined) { "
+                导航代码 += "if (\(父级路径).\(路径部分[i]) !== undefined && \(父级路径).\(路径部分[i]) !== null) { "
                 父级路径 += ".\(路径部分[i])"
             }
             let 最终字段 = 路径部分.last ?? 字段.字段路径
@@ -874,7 +875,7 @@ try {
         var 父级路径 = "body"
         for i in 0..<(路径部分.count - 1) {
             let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined) { \(父级路径).\(字段名) = {}; }\n"
+            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
             父级路径 += ".\(字段名)"
         }
         let 最终字段 = 路径部分.last ?? 字段路径
@@ -905,7 +906,7 @@ $done({ body: JSON.stringify(body) });
         var 父级路径 = "body"
         for i in 0..<(路径部分.count - 1) {
             let 字段名 = 路径部分[i]
-            导航代码 += "if (\(父级路径).\(字段名) === undefined) { \(父级路径).\(字段名) = {}; }\n"
+            导航代码 += "if (\(父级路径).\(字段名) === undefined || \(父级路径).\(字段名) === null) { \(父级路径).\(字段名) = {}; }\n"
             父级路径 += ".\(字段名)"
         }
         let 最终字段 = 路径部分.last ?? 字段路径
