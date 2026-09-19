@@ -288,6 +288,76 @@ struct 活动指示器: UIViewRepresentable {
     func updateUIView(_ 视图: UIActivityIndicatorView, context: Context) {}
 }
 
+// MARK: - 检测失败提示弹窗
+
+/// 更新检测失败时的提示弹窗（区分于"无更新"，网络不佳时显示具体错误原因）
+struct 检测失败弹窗: View {
+    /// 错误信息
+    let 错误信息: String
+    /// 重试回调
+    var 重试回调: (() -> Void)?
+    /// 关闭回调
+    var 关闭回调: (() -> Void)?
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .edgesIgnoringSafeArea(.all)
+                .contentShape(Rectangle()) // 确保整个背景可点击
+                .onTapGesture { 关闭回调?() }
+
+            VStack(spacing: 14) {
+                Image(systemName: "wifi.exclamationmark")
+                    .font(.system(size: 44)) // 44pt大图标，网络错误视觉焦点
+                    .foregroundColor(.orange)
+                Text("检测更新失败")
+                    .font(.headline)
+                Text(错误信息)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true) // 自动换行显示完整错误信息
+
+                // 操作按钮
+                VStack(spacing: 10) {
+                    // 重试按钮
+                    Button(action: {
+                        重试回调?()
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.subheadline)
+                            Text("重新检测")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(Color.blue)
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(PlainButtonStyle()) // iOS14兼容：去除默认按钮样式
+
+                    // 关闭按钮
+                    Button(action: {
+                        关闭回调?()
+                    }) {
+                        Text("关闭")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .padding(20)
+            .background(Color(.systemBackground))
+            .cornerRadius(16)
+            .padding(.horizontal, 48)
+        }
+        .transition(.opacity) // 快速淡入淡出
+    }
+}
+
 // MARK: - 无更新提示弹窗
 
 /// 无更新时的提示弹窗

@@ -1,6 +1,33 @@
 import Foundation
 import UIKit
 
+/// 更新检测错误类型，用于区分"无更新"和"检测失败"
+enum 更新检测错误: Error, LocalizedError {
+    case 网络不可用
+    case 请求超时
+    case 服务器错误(Int) // 参数为HTTP状态码
+    case API限流 // GitHub API 403限流
+    case 数据解析失败
+    case 未知错误(String)
+
+    var 错误描述: String {
+        switch self {
+        case .网络不可用:
+            return "网络连接不可用，请检查网络后重试"
+        case .请求超时:
+            return "请求超时，服务器响应太慢，请稍后重试"
+        case .服务器错误(let 状态码):
+            return "服务器错误（状态码：\(状态码)），请稍后重试"
+        case .API限流:
+            return "GitHub API请求过于频繁，请稍后再试"
+        case .数据解析失败:
+            return "服务器返回数据解析失败，请稍后重试"
+        case .未知错误(let 信息):
+            return "检测失败：\(信息)"
+        }
+    }
+}
+
 /// App更新检测服务，通过GitHub API检测最新Release版本
 /// 支持自动检测（启动时每日一次）与手动检测
 final class App更新服务 {
@@ -73,21 +100,21 @@ final class App更新服务 {
         return false
     }
 
-    /// 检测最新版本（异步网络请求，5秒超时，可取消）
-    /// - Parameter 完成回调: 检测完成回调，参数为更新信息（nil表示无更新或失败）
-    static func 检测最新版本(完成回调: @escaping (App更新模型?) -> Void) {
+    /// 检测最新版本（异步网络请求，10秒超时，可取消）
+    /// - Parameter 完成回调: 检测完成回调，第一个参数为更新信息（nil表示无更新），第二个参数为错误（nil表示成功）
+    static func 检测最新版本(完成回调: @escaping (App更新模型?, 更新检测错误?) -> Void) {
         // 取消之前未完成的检测任务，避免并发请求
         取消检测()
 
         guard let url = URL(string: 最新版本API) else {
-            完成回调(nil)
+            完成回调(nil, .数据解析失败)
             return
         }
 
         var 请求 = URLRequest(url: url)
         请求.httpMethod = "GET"
         请求.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
-        请求.timeoutInterval = 5 // 5秒超时，快速失败避免用户长时间等待
+        请求.timeoutInterval = 10 // 10秒超时，网络不佳时给足响应时间，避免误判为无更新
 
         let 任务 = URLSession.shared.dataTask(with: 请求) { 数据, 响应, 错误 in
             DispatchQueue.main.async {
@@ -96,16 +123,40 @@ final class App更新服务 {
                 if let 错误 = 错误 as? URLError, 错误.code == .cancelled {
                     return
                 }
-                guard 错误 == nil,
-                      let http响应 = 响应 as? HTTPURLResponse,
-                      http响应.statusCode == 200,
-                      let 数据 = 数据 else {
-                    完成回调(nil)
+                // 网络错误处理：区分超时和其他网络错误，不再静默返回nil
+                if let url错误 = 错误 as? URLError {
+                    switch url错误.code {
+                    case .timedOut:
+                        完成回调(nil, .请求超时)
+                    case .notConnectedToInternet, .networkConnectionLost:
+                        完成回调(nil, .网络不可用)
+                    default:
+                        完成回调(nil, .未知错误(url错误.localizedDescription))
+                    }
+                    return
+                }
+                guard let http响应 = 响应 as? HTTPURLResponse else {
+                    完成回调(nil, .未知错误("无效的服务器响应"))
+                    return
+                }
+                // 处理HTTP状态码：403为GitHub API限流，其他非200为服务器错误
+                switch http响应.statusCode {
+                case 200:
+                    break // 正常响应，继续解析
+                case 403:
+                    完成回调(nil, .API限流)
+                    return
+                default:
+                    完成回调(nil, .服务器错误(http响应.statusCode))
+                    return
+                }
+                guard let 数据 = 数据 else {
+                    完成回调(nil, .数据解析失败)
                     return
                 }
 
                 guard let json = try? JSONSerialization.jsonObject(with: 数据) as? [String: Any] else {
-                    完成回调(nil)
+                    完成回调(nil, .数据解析失败)
                     return
                 }
 
@@ -139,7 +190,7 @@ final class App更新服务 {
                     页面地址: 页面地址,
                     发布时间: 发布时间
                 )
-                完成回调(更新信息)
+                完成回调(更新信息, nil)
             }
         }
         当前检测任务 = 任务
