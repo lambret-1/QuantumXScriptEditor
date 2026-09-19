@@ -92,7 +92,7 @@ struct 补全项行视图: View {
                     .foregroundColor(.secondary)
                     .lineLimit(2)
                 // 插入代码预览
-                Text(项.插入代码.prefix(60))
+                Text(String(项.插入代码.prefix(60)))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.secondary)
                     .lineLimit(1)
@@ -102,5 +102,6 @@ struct 补全项行视图: View {
             }
             .padding(.vertical, 4)
         }
+        .buttonStyle(PlainButtonStyle()) // iOS14兼容：List中Button必须使用PlainButtonStyle，否则点击可能无响应
     }
 }

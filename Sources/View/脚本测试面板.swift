@@ -74,10 +74,10 @@ struct 脚本测试面板: View {
             // 操作按钮行
             HStack(spacing: 10) {
                 按钮(标题: "地址库", 图标: "bookmark", 颜色: .purple) {
-                    测试视图模型.显示网址管理 = true
+                    测试视图模型.当前弹窗 = .网址管理
                 }
                 按钮(标题: "环境", 图标: "square.stack", 颜色: Color(UIColor.systemTeal)) {
-                    测试视图模型.显示环境管理 = true
+                    测试视图模型.当前弹窗 = .环境管理
                 }
                 Spacer()
                 按钮(标题: "清空", 图标: "trash", 颜色: .gray) {
@@ -190,11 +190,14 @@ struct 脚本测试面板: View {
         .background(Color(.systemBackground))
         // 复制成功提示浮层
         .overlay(复制成功浮层)
-        .sheet(isPresented: $测试视图模型.显示网址管理) {
-            网址管理弹窗(测试视图模型: 测试视图模型)
-        }
-        .sheet(isPresented: $测试视图模型.显示环境管理) {
-            测试环境管理弹窗(测试视图模型: 测试视图模型)
+        // iOS14兼容：单sheet+枚举，避免多sheet并列时只有一个能弹出的bug
+        .sheet(item: $测试视图模型.当前弹窗) { 弹窗类型 in
+            switch 弹窗类型 {
+            case .网址管理:
+                网址管理弹窗(测试视图模型: 测试视图模型)
+            case .环境管理:
+                测试环境管理弹窗(测试视图模型: 测试视图模型)
+            }
         }
     }
 

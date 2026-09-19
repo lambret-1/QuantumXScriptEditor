@@ -1,6 +1,13 @@
 import Foundation
 import SwiftUI
 
+/// 测试面板弹窗类型枚举（iOS14兼容：单sheet+枚举）
+enum 测试面板弹窗类型: String, Identifiable {
+    case 网址管理 = "网址管理"
+    case 环境管理 = "环境管理"
+    var id: String { rawValue }
+}
+
 /// 脚本测试面板视图模型，管理URL输入、请求头、测试环境、沙箱执行
 @MainActor
 final class 脚本测试视图模型: ObservableObject {
@@ -10,10 +17,8 @@ final class 脚本测试视图模型: ObservableObject {
     @Published var 测试输出 = ""
     /// 是否正在执行测试
     @Published var 正在执行 = false
-    /// 是否显示网址管理弹窗
-    @Published var 显示网址管理 = false
-    /// 是否显示测试环境管理弹窗
-    @Published var 显示环境管理 = false
+    /// 当前弹出的弹窗类型（iOS14兼容：单sheet+枚举）
+    @Published var 当前弹窗: 测试面板弹窗类型? = nil
     /// 请求头编辑文本（key:value 一行一个）
     @Published var 请求头文本 = ""
     /// 请求体编辑文本（POST/PUT时使用）

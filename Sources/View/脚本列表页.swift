@@ -1,5 +1,10 @@
 import SwiftUI
 
+/// URL扩展遵循Identifiable（iOS14兼容：用于.sheet(item:)）
+extension URL: Identifiable {
+    public var id: String { absoluteString }
+}
+
 /// 脚本列表页，展示本地所有脚本，支持新建、删除、进入编辑、更新检测
 struct 脚本列表页: View {
     /// 列表视图模型
@@ -16,10 +21,8 @@ struct 脚本列表页: View {
     @State private var 检测更新中 = false
     /// 是否显示更新检测中弹窗
     @State private var 显示检测中弹窗 = false
-    /// 下载完成后要分享的IPA文件URL
-    @State private var 分享文件URL: URL?
-    /// 是否显示分享面板
-    @State private var 显示分享面板 = false
+    /// 要分享的文件URL（IPA或脚本文件，iOS14兼容：单sheet+可选URL，避免多sheet并列bug）
+    @State private var 分享URL: URL?
     // MARK: - 长按上下文菜单状态
     /// 长按选中的脚本
     @State private var 长按选中脚本: 脚本模型?
@@ -29,10 +32,6 @@ struct 脚本列表页: View {
     @State private var 重命名输入 = ""
     /// 是否显示删除确认弹窗
     @State private var 显示删除确认 = false
-    /// 要分享的脚本文件URL
-    @State private var 分享脚本URL: URL?
-    /// 是否显示脚本分享面板
-    @State private var 显示脚本分享面板 = false
     /// 文件夹提示文本（打开文件夹后显示）
     @State private var 文件夹提示: String?
 
@@ -60,8 +59,7 @@ struct 脚本列表页: View {
                                 // 分享
                                 Button(action: {
                                     长按选中脚本 = 脚本
-                                    分享脚本URL = 视图模型.存储.获取脚本文件URL(脚本)
-                                    显示脚本分享面板 = true
+                                    分享URL = 视图模型.存储.获取脚本文件URL(脚本)
                                 }) {
                                     Label("分享", systemImage: "square.and.arrow.up")
                                 }
@@ -136,25 +134,12 @@ struct 脚本列表页: View {
         .overlay(新建脚本弹窗覆盖层)
         // 更新检测弹窗覆盖层
         .overlay(更新弹窗覆盖层)
-        // 分享面板（下载IPA完成后弹出）
-        .sheet(isPresented: $显示分享面板) {
-            if let 文件URL = 分享文件URL {
-                分享面板视图(文件URL: 文件URL) {
-                    显示分享面板 = false
-                    分享文件URL = nil
-                }
-                .background(透明背景()) // 透明背景，只显示系统分享面板
+        // iOS14兼容：单sheet+可选URL，避免多sheet并列时只有一个能弹出的bug
+        .sheet(item: $分享URL) { 文件URL in
+            分享面板视图(文件URL: 文件URL) {
+                分享URL = nil
             }
-        }
-        // 脚本文件分享面板
-        .sheet(isPresented: $显示脚本分享面板) {
-            if let 文件URL = 分享脚本URL {
-                分享面板视图(文件URL: 文件URL) {
-                    显示脚本分享面板 = false
-                    分享脚本URL = nil
-                }
-                .background(透明背景())
-            }
+            .background(透明背景()) // 透明背景，只显示系统分享面板
         }
         // 重命名弹窗覆盖层
         .overlay(重命名弹窗覆盖层)
@@ -222,9 +207,8 @@ struct 脚本列表页: View {
                 更新检测弹窗(更新信息: 信息, 关闭回调: {
                     显示更新弹窗 = false
                 }, 下载完成回调: { 文件URL in
-                    分享文件URL = 文件URL
                     显示更新弹窗 = false
-                    显示分享面板 = true
+                    分享URL = 文件URL
                 })
             } else if 显示无更新弹窗 {
                 无更新提示弹窗 {

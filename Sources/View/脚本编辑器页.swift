@@ -53,11 +53,14 @@ struct 脚本编辑器页: View {
             }
             .font(.subheadline)
         )
-        .sheet(isPresented: $视图模型.显示模板弹窗) {
-            模板选择弹窗(视图模型: 视图模型)
-        }
-        .sheet(isPresented: $视图模型.显示补全弹窗) {
-            代码补全弹窗(视图模型: 视图模型)
+        // iOS14兼容：单sheet+枚举，避免多sheet并列时只有一个能弹出的bug
+        .sheet(item: $视图模型.当前弹窗) { 弹窗类型 in
+            switch 弹窗类型 {
+            case .模板:
+                模板选择弹窗(视图模型: 视图模型)
+            case .补全:
+                代码补全弹窗(视图模型: 视图模型)
+            }
         }
         // 重命名输入覆盖层（iOS14 Alert不支持TextField，使用自定义覆盖层）
         .overlay(重命名覆盖层)
@@ -136,10 +139,10 @@ struct 工具栏视图: View {
                     视图模型.保存脚本()
                 }
                 工具按钮(标题: "模板", 图标: "square.grid.2x2", 颜色: .purple) {
-                    视图模型.显示模板弹窗 = true
+                    视图模型.当前弹窗 = .模板
                 }
                 工具按钮(标题: "补全", 图标: "textformat", 颜色: .orange) {
-                    视图模型.显示补全弹窗 = true
+                    视图模型.当前弹窗 = .补全
                 }
                 工具按钮(标题: "获取信息", 图标: "wand.and.stars", 颜色: Color(UIColor.systemPurple)) {
                     显示智能分析 = true

@@ -1,6 +1,13 @@
 import Foundation
 import SwiftUI
 
+/// 编辑器弹窗类型枚举（iOS14兼容：使用单sheet+枚举，避免多sheet并列不弹出的bug）
+enum 编辑器弹窗类型: String, Identifiable {
+    case 模板 = "模板"
+    case 补全 = "补全"
+    var id: String { rawValue }
+}
+
 /// 脚本编辑器页面视图模型，管理编辑状态、保存、静态检查、格式化、模板插入
 @MainActor
 final class 脚本编辑器视图模型: ObservableObject {
@@ -12,10 +19,8 @@ final class 脚本编辑器视图模型: ObservableObject {
     @Published var 检查结果: 脚本静态检查服务.检查结果?
     /// 格式化提示文本
     @Published var 格式化提示: String?
-    /// 是否显示模板选择弹窗
-    @Published var 显示模板弹窗 = false
-    /// 是否显示代码补全弹窗（工具栏手动触发）
-    @Published var 显示补全弹窗 = false
+    /// 当前弹出的弹窗类型（iOS14兼容：单sheet+枚举，避免多sheet并列bug）
+    @Published var 当前弹窗: 编辑器弹窗类型? = nil
     /// 是否显示重命名弹窗
     @Published var 显示重命名弹窗 = false
     /// 重命名输入

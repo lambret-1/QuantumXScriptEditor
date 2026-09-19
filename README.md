@@ -69,6 +69,18 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.0.5
+- 修复模板功能在iOS14上点击按钮无反应的兼容性问题（iOS16正常）
+- 根因1（主要）：iOS14不支持同一视图上多个并列`.sheet(isPresented:)`修饰符，导致模板弹窗无法弹出（iOS15已修复此bug）
+- 修复1：全项目重构所有多sheet为单sheet+枚举方案：
+  - 脚本编辑器页：模板弹窗+补全弹窗 → `编辑器弹窗类型`枚举 + `.sheet(item:)`
+  - 脚本测试面板：网址管理+环境管理 → `测试面板弹窗类型`枚举 + `.sheet(item:)`
+  - 脚本列表页：IPA分享+脚本分享 → 单一`分享URL: URL?` + `.sheet(item:)`（添加URL: Identifiable扩展）
+- 根因2：iOS14中`List`内的`Button`使用默认样式时点击可能无响应
+- 修复2：模板行视图和补全项行视图添加`.buttonStyle(PlainButtonStyle())`
+- 修复3：`Text(String.prefix())`显式转换为`String`，避免Substring类型歧义
+- 涉及文件：脚本编辑器页.swift、脚本测试面板.swift、脚本列表页.swift、模板选择弹窗.swift、代码补全弹窗.swift、脚本编辑器视图模型.swift、脚本测试视图模型.swift
+
 ### v1.0.4
 - 修复脚本测试沙箱中"Return statements are only valid inside functions"语法错误
 - 根因：圈X真实运行时会将脚本包装在函数上下文中，允许顶层return语句；但App内JS沙箱直接evaluateScript在全局上下文执行，顶层return非法
