@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.2.4
+- 修复沙箱中console.log等函数报错"is not a function"的严重问题：
+  - 【根本原因】@convention(block)闭包放入Swift字典[String: Any]后整体注入JavaScriptCore时，闭包被桥接为NSObject对象而非JS函数，导致调用时报"console.log is not a function. console.log is an instance of NSObject"
+  - 【修复方案】所有含闭包的对象改用JSValue(newObjectIn:)创建JS对象，再逐个调用setObject(_:forKeyedSubscript:)设置闭包属性，确保闭包被正确桥接为JS函数
+  - 【修复范围】console对象（log函数）、$console对象、$prefs对象（setValueForKey/valueForKey）、$persistentStore对象（write/read）、$httpClient对象（get/post）
+  - 【未受影响】$notify、$nativeFetch等直接setObject单个闭包的注入方式原本就正确
+  - 涉及文件：脚本沙箱服务.swift
+
 ### v1.2.3
 - 修复新手教程弹窗"多余窗口"和"关闭按钮点不了"问题：
   - 【根本原因】新手教程弹窗使用.sheet弹出，sheet自带全屏背景+弹窗内部半透明遮罩形成"多余窗口"，且关闭按钮受sheet布局影响点击区域异常

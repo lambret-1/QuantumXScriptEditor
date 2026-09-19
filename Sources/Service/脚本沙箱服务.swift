@@ -153,7 +153,10 @@ final class 脚本沙箱服务 {
         let post函数: @convention(block) (String, Any?, JSValue) -> Void = { 网址, 选项, 回调 in
             弱引用?.发起网络请求(方法: "POST", 网址: 网址, 选项: 选项, 回调: 回调)
         }
-        let 客户端对象: [String: Any] = ["get": get函数, "post": post函数]
+        // 【关键修复】闭包不能放入字典后整体注入，必须逐个setObject
+        let 客户端对象 = JSValue(newObjectIn: 上下文)!
+        客户端对象.setObject(get函数, forKeyedSubscript: "get" as NSString)
+        客户端对象.setObject(post函数, forKeyedSubscript: "post" as NSString)
         上下文.setObject(客户端对象, forKeyedSubscript: "$httpClient" as NSString)
     }
 
@@ -270,10 +273,13 @@ final class 脚本沙箱服务 {
         上下文.setObject(响应对象, forKeyedSubscript: "$response" as NSString)
 
         // 注入 console 对象（圈X标准写法，console.log输出调试信息）
+        // 【关键修复】闭包不能放入Swift字典后整体注入，否则JavaScriptCore会将闭包桥接为NSObject而非JS函数
+        // 必须用JSValue(newObjectIn:)创建JS对象，再逐个setObject设置闭包属性
         let 日志函数: @convention(block) (String) -> Void = { [weak self] 消息 in
             self?.追加输出("[日志] \(消息)\n")
         }
-        let 控制台对象: [String: Any] = ["log": 日志函数]
+        let 控制台对象 = JSValue(newObjectIn: 上下文)!
+        控制台对象.setObject(日志函数, forKeyedSubscript: "log" as NSString)
         上下文.setObject(控制台对象, forKeyedSubscript: "console" as NSString)
         // 兼容旧写法 $console.log（同时注入，避免旧脚本报错）
         上下文.setObject(控制台对象, forKeyedSubscript: "$console" as NSString)
@@ -288,10 +294,9 @@ final class 脚本沙箱服务 {
         let 获取值函数: @convention(block) (String) -> String? = { 键 in
             UserDefaults.standard.string(forKey: "\(持久化前缀)\(键)")
         }
-        let 持久化对象: [String: Any] = [
-            "setValueForKey": 设置值函数,
-            "valueForKey": 获取值函数
-        ]
+        let 持久化对象 = JSValue(newObjectIn: 上下文)!
+        持久化对象.setObject(设置值函数, forKeyedSubscript: "setValueForKey" as NSString)
+        持久化对象.setObject(获取值函数, forKeyedSubscript: "valueForKey" as NSString)
         上下文.setObject(持久化对象, forKeyedSubscript: "$prefs" as NSString)
         // 兼容Surge写法 $persistentStore（同时注入，避免跨平台脚本报错）
         let surge写入函数: @convention(block) (String, String) -> Void = { 值, 键 in
@@ -300,10 +305,9 @@ final class 脚本沙箱服务 {
         let surge读取函数: @convention(block) (String) -> String? = { 键 in
             UserDefaults.standard.string(forKey: "\(持久化前缀)\(键)")
         }
-        let surge持久化对象: [String: Any] = [
-            "write": surge写入函数,
-            "read": surge读取函数
-        ]
+        let surge持久化对象 = JSValue(newObjectIn: 上下文)!
+        surge持久化对象.setObject(surge写入函数, forKeyedSubscript: "write" as NSString)
+        surge持久化对象.setObject(surge读取函数, forKeyedSubscript: "read" as NSString)
         上下文.setObject(surge持久化对象, forKeyedSubscript: "$persistentStore" as NSString)
 
         // 注入 $notify 函数（圈X原生通知弹窗API，4个参数）
