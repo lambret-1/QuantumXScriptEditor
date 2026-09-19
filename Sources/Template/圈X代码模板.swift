@@ -42,7 +42,8 @@ struct 圈X代码模板: Identifiable {
 // 功能：修改请求头 User-Agent
 // 场景：模拟特定客户端的UA标识
 // ======================
-const headers = $request.headers;
+// 【安全写法】创建新对象副本，避免直接修改$request.headers可能因不可变对象导致不生效
+const headers = Object.assign({}, $request.headers);
 // 修改User-Agent为自定义值
 headers["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)";
 $request.headers = headers;
@@ -60,7 +61,8 @@ $done($request);
 // 功能：修改或添加请求Cookie
 // 场景：注入登录态Cookie
 // ======================
-const headers = $request.headers;
+// 【安全写法】创建新对象副本，避免直接修改$request.headers可能因不可变对象导致不生效
+const headers = Object.assign({}, $request.headers);
 // 添加或覆盖Cookie
 headers["Cookie"] = "sessionid=你的会话ID; token=你的令牌";
 $request.headers = headers;
@@ -179,7 +181,7 @@ try {
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
     // 【终极容错】兜底返回：任何异常都返回原始响应
-    console.log("❌ [异常] 脚本执行异常: " + 错误);
+    console.log("❌ [异常] 脚本执行异常: " + (错误 && 错误.message ? 错误.message : String(错误)));
     $done({ body: 原始响应体 });
 }
 """,
@@ -767,6 +769,7 @@ $done();
 const isRequest = typeof $request != "undefined";      // 是否为重写类型脚本
 const isQuanX = typeof $task != "undefined";            // 是否圈X环境
 const isSurge = typeof $httpClient != "undefined";      // 是否Surge环境
+const isJSBox = typeof $app != "undefined" && typeof $http != "undefined"; // 是否JSBox环境
 const isNode = typeof require == "function" && !isJSBox; // 是否Node环境
 
 console.log("[环境检测] 重写类型: " + isRequest);

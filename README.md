@@ -69,6 +69,13 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.1.1
+- 全面检查并修复代码模板中的错误：
+  - 【严重】「运行环境检测」模板：`isJSBox`变量未定义直接使用，导致`ReferenceError: isJSBox is not defined`，已补充定义`const isJSBox = typeof $app != "undefined" && typeof $http != "undefined"`
+  - 【严重】「修改响应JSON字段」模板：catch块中`console.log("...: " + 错误)`直接拼接Error对象会输出`[object Object]`而非错误信息，已改为`错误 && 错误.message ? 错误.message : String(错误)`
+  - 【改进】「修改请求头（UA）」和「修改请求头（Cookie）」模板：原写法`const headers = $request.headers`直接引用可能因不可变对象导致修改不生效，已改为`Object.assign({}, $request.headers)`创建可变副本后修改再赋值回去
+- 涉及文件：圈X代码模板.swift
+
 ### v1.1.0
 - 彻底修复更新下载完成后弹出接近满屏多余窗口的问题：
   - 完全移除 `分享面板视图`、`分享文本视图` 两个 `UIViewControllerRepresentable` 封装及其内部的 `分享面板容器控制器`、`文本分享容器控制器`
