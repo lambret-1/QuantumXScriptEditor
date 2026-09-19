@@ -87,6 +87,8 @@ final class 脚本测试视图模型: ObservableObject {
     }
 
     /// 执行脚本测试
+    /// 【核心逻辑】点击运行时自动真实请求目标网址获取响应体（有缓存则用缓存），然后注入$response.body执行脚本
+    /// 这样脚本中的$response.body就是动态从目标网址获取的真实响应，与圈X真实运行环境一致
     /// - Parameter 脚本内容: JS源代码
     func 执行测试(脚本内容: String) {
         guard !正在执行 else { return }
@@ -99,7 +101,7 @@ final class 脚本测试视图模型: ObservableObject {
             测试输出 = "❌ 错误：网址格式无效，请输入以 http:// 或 https:// 开头的完整网址\n"
             return
         }
-        // 检查脚本内容是否为空（去除空白后），为空则不执行，避免显示无意义的默认响应体
+        // 检查脚本内容是否为空（去除空白后），为空则不执行
         let 清理后脚本 = 脚本内容.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !清理后脚本.isEmpty else {
             测试输出 = "⚠️ 请先在编辑器中输入脚本代码，再运行测试\n"
@@ -116,16 +118,81 @@ final class 脚本测试视图模型: ObservableObject {
         let 方法 = 请求方法
         if !请求体文本.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
            (方法 == "POST" || 方法 == "PUT" || 方法 == "PATCH") {
-            // 在脚本开头注入 $request.body
             let 注入代码 = "// [测试注入] 请求体\nif (typeof $request !== 'undefined') { $request.body = \(请求体文本.debugDescription); }\n\n"
             最终脚本 = 注入代码 + 脚本内容
         }
 
-        沙箱.执行脚本(代码: 最终脚本, 目标网址: 网址, 请求头: 解析请求头, 请求方法: 方法, 响应体: 真实响应体)
+        // 检查缓存：相同网址直接使用缓存，不重复请求
+        if let 缓存 = 真实响应体, 响应体来源网址 == 网址, !缓存.isEmpty {
+            测试输出 += "⚡ 使用缓存响应体（\(缓存.count)字符），跳过网络请求\n"
+            沙箱.执行脚本(代码: 最终脚本, 目标网址: 网址, 请求头: 解析请求头, 请求方法: 方法, 响应体: 缓存)
+            return
+        }
+
+        // 自动真实请求目标网址获取响应体，获取成功后执行脚本
+        测试输出 += "🌐 正在请求目标网址获取真实响应体：\(网址)\n"
+        请求真实响应体(网址: 网址, 方法: 方法) { [weak self] 结果 in
+            guard let 自身 = self else { return }
+            switch 结果 {
+            case .success(let 响应体):
+                // 缓存响应体供后续使用
+                自身.真实响应体 = 响应体
+                自身.响应体来源网址 = 网址
+                自身.测试输出 += "✅ 获取成功，响应体\(响应体.count)字符（Unicode转义已解码）\n"
+                // 用真实响应体执行脚本
+                自身.沙箱.执行脚本(代码: 最终脚本, 目标网址: 网址, 请求头: 自身.解析请求头, 请求方法: 方法, 响应体: 响应体)
+            case .failure(let 错误):
+                自身.测试输出 += "❌ 获取响应体失败：\(错误.localizedDescription)\n"
+                自身.测试输出 += "💡 提示：请检查网址是否正确、网络是否连通，或点击\"获取响应体\"按钮手动获取\n"
+                自身.正在执行 = false
+            }
+        }
     }
 
-    /// 一键获取真实响应体（真实请求目标网址，缓存结果供脚本执行使用）
-    /// 【性能优化】预先获取响应体后，脚本直接使用缓存数据，无需在脚本中重复发起网络请求
+    // MARK: - 通用网络请求方法
+
+    /// 通用：真实请求目标网址获取响应体（自动解码Unicode转义）
+    /// - Parameters:
+    ///   - 网址: 目标URL
+    ///   - 方法: HTTP方法
+    ///   - 完成: 完成回调，成功返回解码后的响应体字符串，失败返回错误
+    private func 请求真实响应体(网址: String, 方法: String, 完成: @escaping (Result<String, Error>) -> Void) {
+        guard let 请求URL = URL(string: 网址) else {
+            完成(.failure(NSError(domain: "测试错误", code: -1, userInfo: [NSLocalizedDescriptionKey: "网址格式无效"])))
+            return
+        }
+        var 请求 = URLRequest(url: 请求URL)
+        请求.httpMethod = 方法
+        请求.allHTTPHeaderFields = 解析请求头
+        请求.timeoutInterval = 8 // 8秒超时
+
+        // POST/PUT/PATCH时附加请求体
+        if !请求体文本.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+           (方法 == "POST" || 方法 == "PUT" || 方法 == "PATCH") {
+            请求.httpBody = 请求体文本.data(using: .utf8)
+        }
+
+        let 任务 = URLSession.shared.dataTask(with: 请求) { 数据, 响应, 错误 in
+            DispatchQueue.main.async {
+                if let 错误 = 错误 {
+                    完成(.failure(错误))
+                    return
+                }
+                guard let 数据 = 数据, let 响应体文本 = String(data: 数据, encoding: .utf8) else {
+                    完成(.failure(NSError(domain: "测试错误", code: -2, userInfo: [NSLocalizedDescriptionKey: "响应体解析失败（可能是二进制数据）"])))
+                    return
+                }
+                // 解码Unicode转义为可读中文
+                let 解码后文本 = 脚本测试视图模型.解码Unicode转义(响应体文本)
+                完成(.success(解码后文本))
+            }
+        }
+        当前网络任务 = 任务
+        任务.resume()
+    }
+
+    /// 一键获取真实响应体（手动预获取，缓存结果供后续脚本执行使用）
+    /// 复用通用请求方法，获取成功后缓存并显示预览
     func 获取真实响应体() {
         guard !正在获取响应体 else { return }
         let 网址 = 目标网址.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -138,7 +205,7 @@ final class 脚本测试视图模型: ObservableObject {
             return
         }
 
-        // 如果缓存的响应体来源网址与当前网址相同，直接使用缓存，不重复请求
+        // 如果缓存的响应体来源网址与当前网址相同，直接使用缓存
         if let 缓存 = 真实响应体, 响应体来源网址 == 网址, !缓存.isEmpty {
             测试输出 = "⚡ 使用缓存响应体（来源：\(网址)），长度\(缓存.count)字符\n"
             return
@@ -147,55 +214,21 @@ final class 脚本测试视图模型: ObservableObject {
         正在获取响应体 = true
         测试输出 = "🌐 正在请求真实响应体：\(网址)\n"
 
-        var 请求 = URLRequest(url: URL(string: 网址)!)
-        请求.httpMethod = 请求方法
-        请求.allHTTPHeaderFields = 解析请求头
-        请求.timeoutInterval = 8 // 8秒超时，平衡响应速度和网络容忍度
-
-        // POST/PUT/PATCH时附加请求体
-        if !请求体文本.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-           (请求方法 == "POST" || 请求方法 == "PUT" || 请求方法 == "PATCH") {
-            请求.httpBody = 请求体文本.data(using: .utf8)
-        }
-
-        let 任务 = URLSession.shared.dataTask(with: 请求) { [weak self] 数据, 响应, 错误 in
-            DispatchQueue.main.async {
-                guard let 自身 = self else { return }
-                自身.正在获取响应体 = false
-                自身.当前网络任务 = nil
-
-                if let 错误 = 错误 as? URLError, 错误.code == .cancelled {
-                    自身.测试输出 += "⚠️ 请求已取消\n"
-                    return
-                }
-                if let 错误 = 错误 {
-                    自身.测试输出 += "❌ 请求失败：\(错误.localizedDescription)\n"
-                    return
-                }
-                guard let http响应 = 响应 as? HTTPURLResponse else {
-                    自身.测试输出 += "❌ 无效的服务器响应\n"
-                    return
-                }
-                guard let 数据 = 数据, let 响应体文本 = String(data: 数据, encoding: .utf8) else {
-                    自身.测试输出 += "❌ 响应体解析失败（可能是二进制数据）\n"
-                    return
-                }
-
-                // 【中文友好】解码JSON中的Unicode转义序列（\uXXXX → 可读中文），避免显示乱码
-                let 解码后文本 = 脚本测试视图模型.解码Unicode转义(响应体文本)
-                // 缓存解码后的响应体（解码后的JSON同样合法，脚本可正常解析）
-                自身.真实响应体 = 解码后文本
+        请求真实响应体(网址: 网址, 方法: 请求方法) { [weak self] 结果 in
+            guard let 自身 = self else { return }
+            自身.正在获取响应体 = false
+            switch 结果 {
+            case .success(let 响应体):
+                自身.真实响应体 = 响应体
                 自身.响应体来源网址 = 网址
-
-                自身.测试输出 += "✅ 获取成功！状态码\(http响应.statusCode)，响应体\(解码后文本.count)字符\n"
-                自身.测试输出 += "📦 响应体已缓存（Unicode转义已解码为可读中文），执行脚本时将直接使用\n"
-                // 预览前200字符（解码后）
-                let 预览 = 解码后文本.count > 200 ? String(解码后文本.prefix(200)) + "..." : 解码后文本
+                自身.测试输出 += "✅ 获取成功！响应体\(响应体.count)字符（Unicode转义已解码）\n"
+                自身.测试输出 += "📦 响应体已缓存，执行脚本时将直接使用\n"
+                let 预览 = 响应体.count > 200 ? String(响应体.prefix(200)) + "..." : 响应体
                 自身.测试输出 += "[响应体预览]\n\(预览)\n"
+            case .failure(let 错误):
+                自身.测试输出 += "❌ 请求失败：\(错误.localizedDescription)\n"
             }
         }
-        当前网络任务 = 任务
-        任务.resume()
     }
 
     /// 清除响应体缓存（使用默认模拟数据）
