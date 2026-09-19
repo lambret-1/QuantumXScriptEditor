@@ -22,12 +22,16 @@ final class 脚本沙箱服务 {
     private var 同步已完成 = false
     /// 是否已被用户停止
     private var 已停止 = false
+    /// $done是否已被调用（防止重复调用导致多次输出）
+    private var done已调用 = false
     /// 执行开始时间
     private var 开始时间: Date?
     /// 当前进行中的网络任务（用于停止时取消）
     private var 当前网络任务: URLSessionDataTask?
     /// 响应体最大输出字符数（超过则截断）
-    private let 响应体最大输出长度 = 500 // 响应体输出最大500字符，减少大响应体的输出开销提高速度
+    private let 响应体最大输出长度 = 500
+    /// 输出队列（确保线程安全，所有输出修改都在主队列串行执行）
+    private let 输出队列 = DispatchQueue.main
 
     /// 初始化并构建沙箱环境
     init() {
@@ -42,13 +46,14 @@ final class 脚本沙箱服务 {
         追加输出("\n[已停止] 用户手动停止脚本执行\n")
     }
 
-    /// 重建JS上下文并注入全部圈X模拟对象
+    /// 重建JS上下文并注入基础对象
     private func 重置上下文() {
         上下文 = JSContext()
         输出文本 = ""
         超时已触发 = false
         同步已完成 = false
         已停止 = false
+        done已调用 = false
         开始时间 = nil
         当前网络任务 = nil
 
@@ -58,51 +63,43 @@ final class 脚本沙箱服务 {
             self?.追加输出("[JS错误] \(异常)\n")
         }
 
-        注入通知对象()
+        // 基础对象在执行脚本时注入（确保每次执行都是干净环境）
         注入完成对象()
-        注入持久化存储()
         注入网络客户端()
     }
 
-    /// 注入 $notify 模拟对象
-    private func 注入通知对象() {
-        let 通知函数: @convention(block) (Any?, Any?, Any?) -> Void = { [weak self] 标题, 副标题, 内容 in
-            let t = 标题 as? String ?? ""
-            let s = 副标题 as? String ?? ""
-            let m = 内容 as? String ?? ""
-            self?.追加输出("[通知] 标题：\(t) | 副标题：\(s) | 内容：\(m)\n")
-        }
-        上下文.setObject(通知函数, forKeyedSubscript: "$notify" as NSString)
-    }
+    // MARK: - 注入对象方法
 
-    /// 注入 $done 模拟对象
+    /// 注入 $done 模拟对象（带重复调用防护）
     private func 注入完成对象() {
         let 完成函数: @convention(block) (Any?) -> Void = { [weak self] 返回值 in
             guard let 自身 = self else { return }
+            // 防止$done被多次调用导致重复输出
+            guard !自身.done已调用 else {
+                自身.追加输出("[提示] $done() 已被多次调用，忽略后续调用\n")
+                return
+            }
+            自身.done已调用 = true
+
             if let 字典 = 返回值 as? [String: Any] {
                 自身.追加输出("[完成] 脚本执行完成\n")
-                // 提取并展示状态码
                 if let 状态码 = 字典["statusCode"] as? Int {
                     自身.追加输出("[状态码] \(状态码)\n")
                 } else if let 状态码 = 字典["status"] as? Int {
                     自身.追加输出("[状态码] \(状态码)\n")
                 }
-                // 提取并展示响应头（如有修改）
                 if let 响应头 = 字典["headers"] as? [String: Any], !响应头.isEmpty {
                     let 头文本 = 响应头.map { "\($0.key): \($0.value)" }.joined(separator: "\n")
                     自身.追加输出("[响应头]\n\(头文本)\n")
                 }
-                // 提取并格式化展示响应体（核心：用户最关心修改后的body）
                 if let 响应体 = 字典["body"] as? String {
                     自身.展示格式化响应体(响应体)
                 } else if let 响应体 = 字典["body"] {
-                    // body不是字符串时，直接描述
                     自身.追加输出("[修改后响应体] \(String(describing: 响应体))\n")
                 } else {
                     自身.追加输出("[修改后响应体] （空）\n")
                 }
             } else if let 值 = 返回值 {
-                // 非字典返回值（如直接传$request），原样展示
                 自身.追加输出("[完成] 脚本返回：\(String(describing: 值))\n")
             } else {
                 自身.追加输出("[完成] 脚本执行结束（无返回值，原样放行）\n")
@@ -113,14 +110,12 @@ final class 脚本沙箱服务 {
 
     /// 格式化展示响应体：尝试JSON美化，失败则原样显示
     private func 展示格式化响应体(_ 响应体: String) {
-        // 尝试解析为JSON并美化输出
         if let 数据 = 响应体.data(using: .utf8),
            let 对象 = try? JSONSerialization.jsonObject(with: 数据),
            let 美化数据 = try? JSONSerialization.data(withJSONObject: 对象, options: [.prettyPrinted]),
            let 美化文本 = String(data: 美化数据, encoding: .utf8) {
             追加输出("[修改后响应体]\n\(美化文本)\n")
         } else {
-            // 非JSON或解析失败，原样显示
             if 响应体.count > 2000 {
                 let 截断 = String(响应体.prefix(2000))
                 追加输出("[修改后响应体]（共\(响应体.count)字符，仅显示前2000字符）\n\(截断)\n...\n")
@@ -128,20 +123,6 @@ final class 脚本沙箱服务 {
                 追加输出("[修改后响应体]\n\(响应体)\n")
             }
         }
-    }
-
-    /// 注入 $persistentStore 模拟对象（内存级，重启沙箱丢失）
-    private func 注入持久化存储() {
-        var 存储字典: [String: String] = [:]
-        let 读取函数: @convention(block) (String) -> String? = { 键 in
-            存储字典[键]
-        }
-        let 写入函数: @convention(block) (String, String) -> Bool = { 键, 值 in
-            存储字典[键] = 值
-            return true
-        }
-        let 存储对象: [String: Any] = ["read": 读取函数, "write": 写入函数]
-        上下文.setObject(存储对象, forKeyedSubscript: "$persistentStore" as NSString)
     }
 
     /// 注入 $httpClient 模拟对象，支持 get / post 真实网络请求
@@ -153,7 +134,6 @@ final class 脚本沙箱服务 {
         let post函数: @convention(block) (String, Any?, JSValue) -> Void = { 网址, 选项, 回调 in
             弱引用?.发起网络请求(方法: "POST", 网址: 网址, 选项: 选项, 回调: 回调)
         }
-        // 【关键修复】闭包不能放入字典后整体注入，必须逐个setObject
         let 客户端对象 = JSValue(newObjectIn: 上下文)!
         客户端对象.setObject(get函数, forKeyedSubscript: "get" as NSString)
         客户端对象.setObject(post函数, forKeyedSubscript: "post" as NSString)
@@ -161,11 +141,6 @@ final class 脚本沙箱服务 {
     }
 
     /// 发起真实HTTP请求并在完成后调用JS回调
-    /// - Parameters:
-    ///   - 方法: HTTP方法（GET/POST）
-    ///   - 网址: 请求URL
-    ///   - 选项: 选项对象（headers、body）
-    ///   - 回调: JS回调函数 function(error, response)
     private func 发起网络请求(方法: String, 网址: String, 选项: Any?, 回调: JSValue) {
         guard !已停止 else {
             回调.call(withArguments: [["error": "已被停止"], NSNull()])
@@ -190,19 +165,17 @@ final class 脚本沙箱服务 {
         请求.httpMethod = 方法
         请求.allHTTPHeaderFields = 请求头
         请求.httpBody = 请求体数据
-        请求.timeoutInterval = 8 // 网络请求超时8秒，平衡响应速度和网络容忍度
+        请求.timeoutInterval = 8
 
-        // 【性能优化】只输出简要请求信息，不输出完整请求头/请求体，减少大文本输出开销
         追加输出("[网络请求] \(方法) \(网址)\n")
         if !请求头.isEmpty {
-            追加输出("[请求头] \(请求头.count)个字段\n") // 只输出字段数量，不输出完整内容
+            追加输出("[请求头] \(请求头.count)个字段\n")
         }
 
         let 任务 = URLSession.shared.dataTask(with: 请求) { [weak self] 数据, 响应, 错误 in
             DispatchQueue.main.async {
                 guard let 自身 = self else { return }
                 自身.当前网络任务 = nil
-                // 被取消时不回调
                 if let 错误 = 错误 as? URLError, 错误.code == .cancelled {
                     自身.追加输出("[网络请求] 已取消\n")
                     return
@@ -218,9 +191,7 @@ final class 脚本沙箱服务 {
                     return
                 }
                 let 响应体文本 = String(data: 响应数据, encoding: .utf8) ?? ""
-                // 【性能优化】只输出响应状态码和响应体长度，不输出完整响应头
                 自身.追加输出("[网络响应] 状态码\(HTTP响应.statusCode)，响应体\(响应体文本.count)字符\n")
-                // 响应体只预览前500字符，减少大响应体输出开销
                 if !响应体文本.isEmpty {
                     if 响应体文本.count > 自身.响应体最大输出长度 {
                         let 截断文本 = String(响应体文本.prefix(自身.响应体最大输出长度))
@@ -242,13 +213,9 @@ final class 脚本沙箱服务 {
         任务.resume()
     }
 
+    // MARK: - 执行脚本
+
     /// 执行脚本，带超时保护与耗时统计
-    /// - Parameters:
-    ///   - 代码: JS源代码
-    ///   - 目标网址: 注入到 $request.url 的测试URL
-    ///   - 请求头: 注入到 $request.headers 的请求头
-    ///   - 请求方法: 注入到 $request.method 的HTTP方法
-    ///   - 响应体: 注入到 $response.body 的模拟响应体，nil时使用默认模拟数据
     func 执行脚本(代码: String, 目标网址: String, 请求头: [String: String], 请求方法: String = "GET", 响应体: String? = nil) {
         重置上下文()
         开始时间 = Date()
@@ -261,8 +228,7 @@ final class 脚本沙箱服务 {
         ]
         上下文.setObject(请求对象, forKeyedSubscript: "$request" as NSString)
 
-        // 注入 $response 对象（响应修改类脚本必需）
-        // 使用默认模拟响应体，包含常见字段结构，方便用户测试修改
+        // 注入 $response 对象
         let 模拟响应体 = 响应体 ?? "{\"code\":0,\"msg\":\"success\",\"data\":{\"isVip\":false,\"vipExpire\":\"2024-01-01\",\"vipLevel\":1}}"
         let 响应对象: [String: Any] = [
             "statusCode": 200,
@@ -272,21 +238,35 @@ final class 脚本沙箱服务 {
         ]
         上下文.setObject(响应对象, forKeyedSubscript: "$response" as NSString)
 
-        // 注入 console 对象（圈X标准写法，console.log输出调试信息）
-        // 【关键修复】闭包不能放入Swift字典后整体注入，否则JavaScriptCore会将闭包桥接为NSObject而非JS函数
-        // 必须用JSValue(newObjectIn:)创建JS对象，再逐个setObject设置闭包属性
-        let 日志函数: @convention(block) (String) -> Void = { [weak self] 消息 in
+        // 注入 console 对象（支持多参数和任意类型，与真实console.log行为一致）
+        let 日志函数: @convention(block) (JSValue) -> Void = { [weak self] 参数列表 in
+            // JS侧会用arguments传递所有参数，这里通过JSValue的上下文获取
+            // 简化处理：接收第一个参数作为消息
+            let 消息 = 参数列表.toString() ?? ""
             self?.追加输出("[日志] \(消息)\n")
         }
         let 控制台对象 = JSValue(newObjectIn: 上下文)!
         控制台对象.setObject(日志函数, forKeyedSubscript: "log" as NSString)
         上下文.setObject(控制台对象, forKeyedSubscript: "console" as NSString)
-        // 兼容旧写法 $console.log（同时注入，避免旧脚本报错）
+        // 兼容旧写法 $console.log
         上下文.setObject(控制台对象, forKeyedSubscript: "$console" as NSString)
 
+        // 用JS包装console.log支持多参数（在JS侧拼接参数）
+        上下文.evaluateScript("""
+        var _origConsoleLog = console.log;
+        console.log = function() {
+            var args = Array.prototype.slice.call(arguments);
+            var msg = args.map(function(a) {
+                if (typeof a === 'object' && a !== null) {
+                    try { return JSON.stringify(a); } catch(e) { return String(a); }
+                }
+                return String(a);
+            }).join(' ');
+            _origConsoleLog(msg);
+        };
+        """)
+
         // 注入 $prefs 对象（圈X原生持久化存储API）
-        // 圈X使用 $prefs.setValueForKey(value, key) / $prefs.valueForKey(key)
-        // 注意：不是 $persistentStore（那是Surge的API）
         let 持久化前缀 = "圈X沙箱_"
         let 设置值函数: @convention(block) (String, String) -> Void = { 值, 键 in
             UserDefaults.standard.set(值, forKey: "\(持久化前缀)\(键)")
@@ -298,7 +278,8 @@ final class 脚本沙箱服务 {
         持久化对象.setObject(设置值函数, forKeyedSubscript: "setValueForKey" as NSString)
         持久化对象.setObject(获取值函数, forKeyedSubscript: "valueForKey" as NSString)
         上下文.setObject(持久化对象, forKeyedSubscript: "$prefs" as NSString)
-        // 兼容Surge写法 $persistentStore（同时注入，避免跨平台脚本报错）
+
+        // 兼容Surge写法 $persistentStore
         let surge写入函数: @convention(block) (String, String) -> Void = { 值, 键 in
             UserDefaults.standard.set(值, forKey: "\(持久化前缀)\(键)")
         }
@@ -310,20 +291,18 @@ final class 脚本沙箱服务 {
         surge持久化对象.setObject(surge读取函数, forKeyedSubscript: "read" as NSString)
         上下文.setObject(surge持久化对象, forKeyedSubscript: "$persistentStore" as NSString)
 
-        // 注入 $notify 函数（圈X原生通知弹窗API，4个参数）
-        // 圈X使用 $notify(title, subtitle, message, options)
-        let 通知函数: @convention(block) (String, String, String, JSValue) -> Void = { [weak self] 标题, 副标题, 消息, _ in
-            self?.追加输出("[通知] \(标题) | \(副标题) | \(消息)\n")
+        // 注入 $notify 函数（圈X原生通知弹窗API，使用JSValue接收参数避免类型不匹配崩溃）
+        let 通知函数: @convention(block) (JSValue, JSValue, JSValue, JSValue) -> Void = { [weak self] 标题, 副标题, 消息, _ in
+            let t = 标题.isString ? 标题.toString() : ""
+            let s = 副标题.isString ? 副标题.toString() : ""
+            let m = 消息.isString ? 消息.toString() : ""
+            self?.追加输出("[通知] 标题：\(t ?? "") | 副标题：\(s ?? "") | 内容：\(m ?? "")\n")
         }
         上下文.setObject(通知函数, forKeyedSubscript: "$notify" as NSString)
 
         // 注入 $task 对象（圈X原生网络请求API，Promise风格）
-        // 圈X使用 $task.fetch(options).then(response => {...}, reason => {...})
-        // 注意：不是 $httpClient（那是Surge的API）
-        // 先注入原生获取函数，再用JS包装为Promise
         let 原生获取函数: @convention(block) (JSValue, JSValue) -> Void = { [weak self] 选项, 回调 in
             guard let 自身 = self else { return }
-            // 解析选项（支持字符串URL或对象）
             var 网址 = ""
             var 方法 = "GET"
             if 选项.isString {
@@ -336,11 +315,9 @@ final class 脚本沙箱服务 {
                 回调.call(withArguments: [["error": "URL为空"], NSNull()])
                 return
             }
-            // 复用现有的发起网络请求方法，选项对象直接传递（含headers和body）
             自身.发起网络请求(方法: 方法, 网址: 网址, 选项: 选项.isObject ? 选项.toObject() : nil, 回调: 回调)
         }
         上下文.setObject(原生获取函数, forKeyedSubscript: "$nativeFetch" as NSString)
-        // 用JS包装为Promise风格的$task.fetch
         上下文.evaluateScript("""
         var $task = {
             fetch: function(options) {
@@ -352,16 +329,15 @@ final class 脚本沙箱服务 {
                 });
             }
         };
-        // 注：$httpClient已由Swift原生注入（注入网络客户端方法），此处不重复创建
         """)
 
+        // 输出执行信息
         追加输出("========== 开始执行脚本 ==========\n")
         追加输出("目标网址：\(目标网址)\n")
         追加输出("请求方法：\(请求方法)\n")
         if !请求头.isEmpty {
             追加输出("请求头：\(请求头.map { "\($0.key)=\($0.value)" }.joined(separator: ", "))\n")
         }
-        // 输入响应体（脚本修改前的原始数据）【性能优化】大响应体只预览前500字符
         if 模拟响应体.count > 响应体最大输出长度 {
             let 预览 = String(模拟响应体.prefix(响应体最大输出长度))
             追加输出("[输入响应体] 共\(模拟响应体.count)字符，预览前\(响应体最大输出长度)字符：\n\(预览)\n...\n")
@@ -370,10 +346,7 @@ final class 脚本沙箱服务 {
         }
         追加输出("---------- 脚本执行 ----------\n")
 
-        // 超时保护：在后台队列执行，超时后提示
-        // 【关键修复】将用户代码包装在立即执行函数(IIFE)中，模拟圈X真实运行环境
-        // 圈X会将脚本注入函数上下文，因此模板中可以使用return语句提前退出
-        // 若不包装，顶层return会报"Return statements are only valid inside functions"错误
+        // 将用户代码包装在IIFE中，模拟圈X真实运行环境，支持顶层return
         let 包装后代码 = "(function() {\n\(代码)\n})();"
         let 工作项 = DispatchWorkItem { [weak self] in
             _ = self?.上下文.evaluateScript(包装后代码)
@@ -415,9 +388,12 @@ final class 脚本沙箱服务 {
         完成回调?(耗时)
     }
 
-    /// 追加输出文本并通知回调
+    /// 追加输出文本并通知回调（统一在主队列执行，确保线程安全）
     private func 追加输出(_ 文本: String) {
-        输出文本 += 文本
-        输出更新回调?(输出文本)
+        输出队列.async { [weak self] in
+            guard let 自身 = self else { return }
+            自身.输出文本 += 文本
+            自身.输出更新回调?(自身.输出文本)
+        }
     }
 }
