@@ -64,7 +64,7 @@ enum 代码补全服务 {
         代码补全项(触发词: "存储JSON对象", 插入代码: "// 写入对象\nconst obj = {name: \"test\", value: 123};\n$persistentStore.write(JSON.stringify(obj), \"配置键\");\n// 读取对象\nconst data = JSON.parse($persistentStore.read(\"配置键\") || \"{}\");", 中文说明: "完整模板：持久化存储JSON对象（序列化与反序列化）", 分类: .存储通知),
         代码补全项(触发词: "$notify模板", 插入代码: "$notify(\"脚本执行成功\", \"提示\", \"当前操作已完成\");\n$done();", 中文说明: "完整模板：弹出通知并结束脚本", 分类: .存储通知),
         代码补全项(触发词: "$notify带链接", 插入代码: "$notify(\"标题\", \"副标题\", \"消息\", {\"open-url\": \"https://example.com\"});", 中文说明: "圈X原生通知带跳转链接，点击通知后打开指定URL", 分类: .存储通知),
-        代码补全项(触发词: "环境检测", 插入代码: "const isQuanX = typeof $task != \"undefined\";\nconst isSurge = typeof $httpClient != \"undefined\";\nconsole.log(\"圈X: \" + isQuanX + \", Surge: \" + isSurge);", 中文说明: "检测当前运行环境（圈X/Surge），编写跨平台兼容脚本", 分类: .工具函数),
+        代码补全项(触发词: "环境检测", 插入代码: "const isQuanX = typeof $task != \"undefined\";\nconst isSurge = typeof $httpClient != \"undefined\";\nconsole.log(\"圈X: \" + isQuanX + \", Surge: \" + isSurge);", 中文说明: "检测当前运行环境（圈X/Surge），编写跨平台兼容脚本", 分类: .全局对象),
         代码补全项(触发词: "条件通知", 插入代码: "if (条件成立) {\n    $notify(\"标题\", \"副标题\", \"内容\");\n}\n$done();", 中文说明: "完整模板：满足条件时弹出通知", 分类: .存储通知),
         代码补全项(触发词: "删除存储键", 插入代码: "$persistentStore.write(\"\", \"要删除的键名\");", 中文说明: "通过写入空字符串删除持久化存储中的键", 分类: .存储通知),
         代码补全项(触发词: "存储布尔值", 插入代码: "$persistentStore.write(\"true\", \"开关状态\");\nconst 开关 = $persistentStore.read(\"开关状态\") === \"true\";", 中文说明: "持久化存储布尔值（字符串存储，读取时比较）", 分类: .存储通知),

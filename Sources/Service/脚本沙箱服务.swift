@@ -326,31 +326,18 @@ final class 脚本沙箱服务 {
             // 解析选项（支持字符串URL或对象）
             var 网址 = ""
             var 方法 = "GET"
-            var 请求头: [String: String] = [:]
-            var 请求体 = ""
             if 选项.isString {
                 网址 = 选项.toString() ?? ""
             } else if 选项.isObject {
                 网址 = 选项.forProperty("url")?.toString() ?? ""
                 方法 = 选项.forProperty("method")?.toString() ?? "GET"
-                if let 头对象 = 选项.forProperty("headers"), 头对象.isObject {
-                    if let 属性 = 头对象.toDictionary() as? [String: String] {
-                        请求头 = 属性
-                    }
-                }
-                请求体 = 选项.forProperty("body")?.toString() ?? ""
             }
             guard !网址.isEmpty else {
                 回调.call(withArguments: [["error": "URL为空"], NSNull()])
                 return
             }
-            自身.执行网络请求(网址: 网址, 方法: 方法, 请求头: 请求头, 请求体: 请求体) { 错误, 响应 in
-                if let 错误 = 错误 {
-                    回调.call(withArguments: [["error": 错误.localizedDescription], NSNull()])
-                } else {
-                    回调.call(withArguments: [NSNull(), 响应 ?? [:]])
-                }
-            }
+            // 复用现有的发起网络请求方法，选项对象直接传递（含headers和body）
+            自身.发起网络请求(方法: 方法, 网址: 网址, 选项: 选项.isObject ? 选项.toObject() : nil, 回调: 回调)
         }
         上下文.setObject(原生获取函数, forKeyedSubscript: "$nativeFetch" as NSString)
         // 用JS包装为Promise风格的$task.fetch
@@ -365,23 +352,7 @@ final class 脚本沙箱服务 {
                 });
             }
         };
-        // 兼容Surge写法 $httpClient（同时注入get/post方法）
-        var $httpClient = {
-            get: function(options, callback) {
-                if (typeof options === 'string') options = {url: options};
-                options.method = 'GET';
-                $nativeFetch(options, function(error, response) {
-                    callback(error, response, response ? response.body : null);
-                });
-            },
-            post: function(options, callback) {
-                if (typeof options === 'string') options = {url: options};
-                options.method = 'POST';
-                $nativeFetch(options, function(error, response) {
-                    callback(error, response, response ? response.body : null);
-                });
-            }
-        };
+        // 注：$httpClient已由Swift原生注入（注入网络客户端方法），此处不重复创建
         """)
 
         追加输出("========== 开始执行脚本 ==========\n")
