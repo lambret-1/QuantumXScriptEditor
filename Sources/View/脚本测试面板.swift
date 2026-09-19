@@ -8,6 +8,8 @@ struct 脚本测试面板: View {
     @ObservedObject var 测试视图模型: 脚本测试视图模型
     /// 网址是否已被用户首次编辑（用于点击清除默认网址）
     @State private var 网址已首次编辑 = false
+    /// 请求头区域是否展开（默认折叠）
+    @State private var 请求头已展开 = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -146,18 +148,38 @@ struct 脚本测试面板: View {
                 .padding(.horizontal, 16)
             }
 
-            // 请求头编辑
+            // 请求头编辑（可折叠，默认折叠）
             VStack(alignment: .leading, spacing: 6) {
-                Text("请求头（key:value，一行一个）")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                TextEditor(text: $测试视图模型.请求头文本)
-                    .font(.system(size: 12, design: .monospaced)) // 12pt等宽字体，请求头编辑
-                    .frame(height: 应用常量.请求头编辑高度) // 固定高度，控制Header区域大小
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
-                    )
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) { // 0.2秒展开/收起动画，流畅自然
+                        请求头已展开.toggle()
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: 请求头已展开 ? "chevron.down" : "chevron.right")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text("请求头（key:value，一行一个）")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        if !请求头已展开 && !测试视图模型.请求头文本.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text("（已配置）")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                        }
+                        Spacer()
+                    }
+                }
+                if 请求头已展开 {
+                    TextEditor(text: $测试视图模型.请求头文本)
+                        .font(.system(size: 12, design: .monospaced)) // 12pt等宽字体，请求头编辑
+                        .frame(height: 应用常量.请求头编辑高度) // 固定高度，控制Header区域大小
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                        )
+                        .transition(.opacity) // 淡入淡出过渡，展开收起更柔和
+                }
             }
             .padding(.horizontal, 16)
 
