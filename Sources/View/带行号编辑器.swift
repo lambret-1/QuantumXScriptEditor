@@ -83,40 +83,24 @@ final class 编辑器协调器: NSObject, UITextViewDelegate {
     let 高亮服务 = 语法高亮服务()
     /// 补全项选中回调（由容器注入）
     var 补全选中回调: ((代码补全项) -> Void)?
-    /// 【关键修复】正在编辑标志位，防止编辑过程中SwiftUI updateUIView二次刷新导致屏幕乱跳
+    /// 正在编辑标志位，防止编辑过程中SwiftUI updateUIView二次刷新导致屏幕乱跳
     var 正在编辑 = false
-    /// 【终极修复】防抖高亮工作项，输入时不重新高亮，停止输入0.3秒后再高亮，从根本上消除attributedText重设导致的布局抖动
-    private var 防抖高亮工作项: DispatchWorkItem?
 
     init(父视图: 带行号代码编辑器) {
         self.父视图 = 父视图
     }
 
-    /// 文本变化时更新绑定、刷新行号、更新补全候选（高亮延迟到停止输入后执行）
+    /// 文本变化时只更新绑定、刷新行号、更新补全候选
+    /// 【终极修复】输入过程中完全不触碰attributedText，从根本上消除任何布局抖动
+    /// 语法高亮只在结束编辑时应用一次，确保输入体验与原生UITextView完全一致
     func textViewDidChange(_ 文本视图: UITextView) {
         正在编辑 = true
-        // 【终极修复】输入时不重新设置attributedText，只更新绑定文本和刷新行号
-        // 之前每次输入都重新设置attributedText导致UITextView重新布局，是屏幕抖动的根本原因
-        // 现在连续输入期间完全不触碰attributedText，停止输入0.3秒后才统一高亮
         父视图.文本 = 文本视图.text
         // 刷新行号
         if let 容器 = 文本视图.superview as? 代码编辑器容器视图 {
             容器.行号控件.setNeedsDisplay()
             更新补全候选(文本视图, 容器: 容器)
         }
-        // 取消之前的防抖高亮任务
-        防抖高亮工作项?.cancel()
-        // 创建新的防抖高亮任务，停止输入0.3秒后执行
-        let 工作项 = DispatchWorkItem { [weak self, weak 文本视图] in
-            guard let 自身 = self, let 文本视图 = 文本视图 else { return }
-            // 保存当前选中范围，重新高亮后恢复
-            let 选中范围 = 文本视图.selectedRange
-            文本视图.attributedText = 自身.高亮服务.高亮(文本: 文本视图.text)
-            文本视图.selectedRange = 选中范围
-            自身.正在编辑 = false
-        }
-        防抖高亮工作项 = 工作项
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: 工作项)
     }
 
     /// 开始编辑时设置标志位
@@ -124,9 +108,13 @@ final class 编辑器协调器: NSObject, UITextViewDelegate {
         正在编辑 = true
     }
 
-    /// 结束编辑时清除标志位
+    /// 结束编辑时应用一次语法高亮（输入过程中不高亮，结束时统一高亮，避免抖动）
     func textViewDidEndEditing(_ 文本视图: UITextView) {
         正在编辑 = false
+        // 结束编辑时应用一次高亮，保存当前选中范围后恢复
+        let 选中范围 = 文本视图.selectedRange
+        文本视图.attributedText = 高亮服务.高亮(文本: 文本视图.text)
+        文本视图.selectedRange = 选中范围
     }
 
     /// 滚动时刷新行号显示
