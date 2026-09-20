@@ -51,17 +51,7 @@ struct 广告分析弹窗: View {
                             .background(Color.orange.opacity(0.1))
                             .cornerRadius(8)
                         } else if let 结果 = 测试视图模型.广告分析结果 {
-                            // 识别到的广告字段列表
-                            Text("共识别到 \(结果.广告字段.count) 个广告相关字段")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
-
-                            ForEach(结果.广告字段) { 字段 in
-                                广告字段行(字段: 字段)
-                            }
-
-                            // 一键生成广告屏蔽脚本按钮
+                            // 一键生成广告屏蔽脚本按钮（置顶，方便用户快速操作）
                             Button(action: {
                                 生成并写入脚本()
                             }) {
@@ -78,7 +68,16 @@ struct 广告分析弹窗: View {
                                 .background(Color.orange)
                                 .cornerRadius(8)
                             }
-                            .padding(.top, 8)
+
+                            // 识别到的广告字段列表
+                            Text("共识别到 \(结果.广告字段.count) 个广告相关字段")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                                .foregroundColor(.secondary)
+
+                            ForEach(结果.广告字段) { 字段 in
+                                广告字段行(字段: 字段)
+                            }
                         }
                     }
                     .padding(.horizontal, 16)

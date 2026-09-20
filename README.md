@@ -69,6 +69,15 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.6.7
+- 广告分析功能优化：
+  - 【优化1】一键生成广告屏蔽脚本按钮置顶，放在广告字段列表上方，方便用户快速操作
+  - 【优化2】大幅扩充广告关键词库：
+    - 广告标记关键词从18个扩充到90+个，新增广告开关（adSwitch/adEnable/showAd等）、广告配置对象（adConfig/adSetting/adParam等）、各类广告形式开关（开屏/插屏/横幅/激励/原生/悬浮/视频/弹窗）、会员去广告标记（noAd/adFree/vipNoAd等）
+    - 广告资源关键词从24个扩充到150+个，新增广告描述/副标题、广告跳转/落地页、广告视频资源、各类广告形式资源（开屏/插屏/横幅/激励/原生/悬浮/弹窗）、广告按钮/CTA、广告统计/上报、广告品牌/广告主、广告价格/积分、广告有效期等
+    - 新增广告数组关键词60+个（adList/bannerList/splashList/popupList/pcsliderows/slideList/carouselList/recommendAdList/feedAdList等），识别后自动设为空数组[]
+  - 修改文件：Sources/View/广告分析弹窗.swift、Sources/Service/智能分析服务.swift
+
 ### v1.6.6
 - 测试面板新增广告分析功能：
   - 在辅助操作行新增「广告分析」按钮（橙色盾牌图标）

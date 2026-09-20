@@ -97,23 +97,139 @@ enum 智能分析服务 {
         "rank", "tier", "membershipLevel"
     ]
 
-    /// 广告标记字段关键词（布尔型）
+    /// 广告标记字段关键词（布尔型/对象型，识别后设为0或{}）
     private static let 广告标记关键词 = [
+        // 基础广告开关
         "isAd", "is_ad", "hasAd", "has_ad", "isAdvert", "is_advert",
         "ad", "ads", "advert", "advertisement", "sponsored", "isSponsored",
         "is_sponsored", "promotion", "isPromotion", "is_promotion",
-        "adFlag", "ad_flag", "adType", "ad_type",
-        "globalData", "appver"  // 全局广告配置/应用版本配置，识别后模板中设为{}空对象
+        "adFlag", "ad_flag", "adType", "ad_type", "adSwitch", "ad_switch",
+        "adEnable", "ad_enable", "adEnabled", "ad_enabled", "showAd", "show_ad",
+        "showAds", "show_ads", "displayAd", "display_ad", "enableAd", "enable_ad",
+        "openAd", "open_ad", "adOpen", "ad_open", "adStatus", "ad_status",
+        "adShow", "ad_show", "adDisplay", "ad_display", "adVisible", "ad_visible",
+        // 广告配置对象
+        "globalData", "appver", "adConfig", "ad_config", "adConf", "ad_conf",
+        "adSetting", "ad_setting", "adSettings", "ad_settings", "adOption", "ad_option",
+        "adOptions", "ad_options", "adParam", "ad_param", "adParams", "ad_params",
+        "adInfo", "ad_info", "adData", "ad_data", "adModel", "ad_model",
+        "advertConfig", "advert_config", "advertInfo", "advert_info",
+        "promoConfig", "promo_config", "promoInfo", "promo_info",
+        // 开屏/插屏/横幅广告开关
+        "splashAd", "splash_ad", "splash", "isSplash", "is_splash",
+        "interstitialAd", "interstitial_ad", "interstitial", "isInterstitial", "is_interstitial",
+        "bannerAd", "banner_ad", "isBanner", "is_banner", "bannerSwitch", "banner_switch",
+        "rewardAd", "reward_ad", "rewardedAd", "rewarded_ad", "isReward", "is_reward",
+        "nativeAd", "native_ad", "isNative", "is_native",
+        "floatAd", "float_ad", "isFloat", "is_float", "floatingAd", "floating_ad",
+        "videoAd", "video_ad", "isVideoAd", "is_video_ad",
+        "insertAd", "insert_ad", "isInsert", "is_insert",
+        "popupAd", "popup_ad", "isPopup", "is_popup", "popAd", "pop_ad",
+        // 会员去广告相关
+        "noAd", "no_ad", "noAds", "no_ads", "removeAd", "remove_ad",
+        "adFree", "ad_free", "isAdFree", "is_ad_free", "vipNoAd", "vip_no_ad",
+        "memberNoAd", "member_no_ad"
     ]
 
-    /// 广告链接/图片字段关键词
+    /// 广告链接/图片/视频字段关键词（识别后设为空字符串）
     private static let 广告资源关键词 = [
+        // 基础广告资源
         "adUrl", "ad_url", "adLink", "ad_link", "adImage", "ad_image",
         "adImg", "ad_img", "adIcon", "ad_icon", "adTitle", "ad_title",
         "adContent", "ad_content", "adTrack", "ad_track", "adClick",
         "ad_click", "adId", "ad_id", "adSlot", "ad_slot", "adPosition",
         "ad_position", "bannerUrl", "banner_url", "bannerImage", "banner_image",
-        "popupUrl", "popup_url", "popupImage", "popup_image"
+        "popupUrl", "popup_url", "popupImage", "popup_image",
+        // 广告描述/副标题
+        "adDesc", "ad_desc", "adDescription", "ad_description", "adSubtitle", "ad_subtitle",
+        "adSummary", "ad_summary", "adText", "ad_text", "adMsg", "ad_msg",
+        "adMessage", "ad_message", "adBody", "ad_body", "adDetail", "ad_detail",
+        // 广告跳转/落地页
+        "adJumpUrl", "ad_jump_url", "adJump", "ad_jump", "adTarget", "ad_target",
+        "adRedirect", "ad_redirect", "adRedirectUrl", "ad_redirect_url",
+        "adLanding", "ad_landing", "adLandingUrl", "ad_landing_url",
+        "adAction", "ad_action", "adActionUrl", "ad_action_url",
+        "adDeepLink", "ad_deep_link", "adDeeplink", "ad_deeplink",
+        // 广告视频资源
+        "adVideo", "ad_video", "adVideoUrl", "ad_video_url", "adVideoImage", "ad_video_image",
+        "adVideoCover", "ad_video_cover", "adVideoThumb", "ad_video_thumb",
+        "adMedia", "ad_media", "adMediaUrl", "ad_media_url",
+        "adSource", "ad_source", "adSourceUrl", "ad_source_url",
+        // 开屏广告资源
+        "splashUrl", "splash_url", "splashImage", "splash_image", "splashImg", "splash_img",
+        "splashIcon", "splash_icon", "splashTitle", "splash_title", "splashDesc", "splash_desc",
+        "splashJumpUrl", "splash_jump_url", "splashLink", "splash_link",
+        // 插屏广告资源
+        "interstitialUrl", "interstitial_url", "interstitialImage", "interstitial_image",
+        "interstitialImg", "interstitial_img", "interstitialTitle", "interstitial_title",
+        "interstitialDesc", "interstitial_desc", "interstitialJumpUrl", "interstitial_jump_url",
+        // 横幅广告资源
+        "bannerImg", "banner_img", "bannerIcon", "banner_icon", "bannerTitle", "banner_title",
+        "bannerDesc", "banner_desc", "bannerJumpUrl", "banner_jump_url", "bannerLink", "banner_link",
+        "bannerTarget", "banner_target", "bannerRedirect", "banner_redirect",
+        // 激励视频广告资源
+        "rewardUrl", "reward_url", "rewardImage", "reward_image", "rewardTitle", "reward_title",
+        "rewardDesc", "reward_desc", "rewardedUrl", "rewarded_url", "rewardedImage", "rewarded_image",
+        // 原生广告资源
+        "nativeUrl", "native_url", "nativeImage", "native_image", "nativeTitle", "native_title",
+        "nativeDesc", "native_desc", "nativeIcon", "native_icon",
+        // 悬浮广告资源
+        "floatUrl", "float_url", "floatImage", "float_image", "floatIcon", "float_icon",
+        "floatTitle", "float_title", "floatDesc", "float_desc", "floatJumpUrl", "float_jump_url",
+        "floatingUrl", "floating_url", "floatingImage", "floating_image",
+        // 弹窗广告资源
+        "popupImg", "popup_img", "popupIcon", "popup_icon", "popupTitle", "popup_title",
+        "popupDesc", "popup_desc", "popupJumpUrl", "popup_jump_url", "popupLink", "popup_link",
+        "popUrl", "pop_url", "popImage", "pop_image", "popTitle", "pop_title", "popDesc", "pop_desc",
+        // 广告按钮/CTA
+        "adButton", "ad_button", "adBtn", "ad_btn", "adButtonText", "ad_button_text",
+        "adBtnText", "ad_btn_text", "adCta", "ad_cta", "adCtaText", "ad_cta_text",
+        "adActionText", "ad_action_text", "adButtonUrl", "ad_button_url", "adBtnUrl", "ad_btn_url",
+        // 广告统计/上报
+        "adReport", "ad_report", "adReportUrl", "ad_report_url", "adTrackUrl", "ad_track_url",
+        "adTracking", "ad_tracking", "adTrackingUrl", "ad_tracking_url", "adMonitor", "ad_monitor",
+        "adMonitorUrl", "ad_monitor_url", "adStat", "ad_stat", "adStatUrl", "ad_stat_url",
+        "adPv", "ad_pv", "adPvUrl", "ad_pv_url", "adUv", "ad_uv", "adUvUrl", "ad_uv_url",
+        "adExpose", "ad_expose", "adExposeUrl", "ad_expose_url", "adImpression", "ad_impression",
+        "adImpressionUrl", "ad_impression_url", "adShowUrl", "ad_show_url", "adViewUrl", "ad_view_url",
+        "adClickUrl", "ad_click_url", "adClickTrack", "ad_click_track", "adClickTrackUrl", "ad_click_track_url",
+        // 广告品牌/广告主
+        "adBrand", "ad_brand", "adBrandName", "ad_brand_name", "advertiser", "advertiserName",
+        "advertiser_name", "adOwner", "ad_owner", "adOwnerName", "ad_owner_name",
+        "adSponsor", "ad_sponsor", "adSponsorName", "ad_sponsor_name",
+        // 广告价格/积分
+        "adPrice", "ad_price", "adCoin", "ad_coin", "adPoint", "ad_point", "adScore", "ad_score",
+        "adReward", "ad_reward", "adRewardCoin", "ad_reward_coin", "adRewardPoint", "ad_reward_point",
+        // 广告有效期
+        "adStartTime", "ad_start_time", "adEndTime", "ad_end_time", "adExpire", "ad_expire",
+        "adExpireTime", "ad_expire_time", "adValidTime", "ad_valid_time", "adDuration", "ad_duration"
+    ]
+
+    /// 广告数组字段关键词（识别后设为空数组[]）
+    private static let 广告数组关键词 = [
+        "adList", "ad_list", "adsList", "ads_list", "adArray", "ad_array",
+        "adItems", "ad_items", "adDataList", "ad_data_list", "adDataArray", "ad_data_array",
+        "adInfoList", "ad_info_list", "adInfoArray", "ad_info_array",
+        "adConfigList", "ad_config_list", "adConfigArray", "ad_config_array",
+        "bannerList", "banner_list", "bannerArray", "banner_array", "banners",
+        "splashList", "splash_list", "splashArray", "splash_array",
+        "interstitialList", "interstitial_list", "interstitialArray", "interstitial_array",
+        "popupList", "popup_list", "popupArray", "popup_array", "popups",
+        "floatList", "float_list", "floatArray", "float_array", "floats",
+        "nativeList", "native_list", "nativeArray", "native_array",
+        "rewardList", "reward_list", "rewardArray", "reward_array",
+        "videoAdList", "video_ad_list", "videoAdArray", "video_ad_array",
+        "promotionList", "promotion_list", "promotionArray", "promotion_array", "promotions",
+        "advertList", "advert_list", "advertArray", "advert_array", "adverts",
+        "sponsorList", "sponsor_list", "sponsorArray", "sponsor_array", "sponsors",
+        "pcsliderows", "pcSliderows", "pc_slide_rows", "slideList", "slide_list",
+        "slideArray", "slide_array", "slides", "carouselList", "carousel_list",
+        "carouselArray", "carousel_array", "carousels",
+        "recommendAdList", "recommend_ad_list", "recommendAds", "recommend_ads",
+        "hotAdList", "hot_ad_list", "hotAds", "hot_ads",
+        "topAdList", "top_ad_list", "topAds", "top_ads",
+        "feedAdList", "feed_ad_list", "feedAds", "feed_ads",
+        "streamAdList", "stream_ad_list", "streamAds", "stream_ads"
     ]
 
     // MARK: - 用户核心信息关键词配置
@@ -598,6 +714,14 @@ enum 智能分析服务 {
                         字段路径: 当前路径,
                         当前值: String(describing: 值),
                         类型: 类型
+                    ))
+                }
+                // 检查广告数组字段
+                else if 广告数组关键词.contains(where: { 小写键 == $0.lowercased() || 小写键.hasSuffix($0.lowercased()) }) {
+                    结果.广告字段.append(识别字段(
+                        字段路径: 当前路径,
+                        当前值: String(describing: 值),
+                        类型: .广告数组
                     ))
                 }
                 // 检查用户核心信息字段（短关键词仅精确匹配，避免误判）
