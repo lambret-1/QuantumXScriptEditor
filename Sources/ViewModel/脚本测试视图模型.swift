@@ -47,6 +47,12 @@ final class 脚本测试视图模型: ObservableObject {
     @Published var 响应体来源网址 = ""
     /// 当前网络任务（用于取消获取响应体）
     private var 当前网络任务: URLSessionDataTask?
+    /// 是否显示广告分析弹窗
+    @Published var 显示广告分析弹窗 = false
+    /// 广告分析结果
+    @Published var 广告分析结果: 智能分析服务.分析结果?
+    /// 广告分析错误信息
+    @Published var 广告分析错误 = ""
 
     /// 可用HTTP方法列表
     let 可用方法 = ["GET", "POST", "PUT", "DELETE", "PATCH"]
@@ -375,5 +381,136 @@ final class 脚本测试视图模型: ObservableObject {
         let 新环境 = 测试环境模型(环境名称: 名称, 目标网址: 目标网址, 请求头: 解析请求头)
         环境存储.新增环境(新环境)
         新环境名称 = ""
+    }
+
+    // MARK: - 广告分析
+
+    /// 一键分析响应体中的广告信息
+    /// 优先使用真实响应体，其次使用模拟响应体
+    func 分析广告信息() {
+        广告分析错误 = ""
+        广告分析结果 = nil
+
+        // 获取待分析的响应体：优先真实响应体，其次模拟响应体
+        guard let 响应体 = 真实响应体 ?? 请求体文本, !响应体.isEmpty else {
+            广告分析错误 = "请先获取真实响应体或输入模拟响应体"
+            return
+        }
+
+        // 使用智能分析服务分析，只提取广告相关字段
+        let 结果 = 智能分析服务.分析(原始文本: 响应体)
+
+        if 结果.广告字段.isEmpty {
+            广告分析错误 = "未在响应体中识别到广告相关字段"
+            return
+        }
+
+        广告分析结果 = 结果
+        显示广告分析弹窗 = true
+    }
+
+    /// 生成广告屏蔽脚本（将所有识别到的广告字段设为空值）
+    /// - Returns: 生成的完整圈X脚本代码
+    func 生成广告屏蔽脚本() -> String {
+        guard let 结果 = 广告分析结果, !结果.广告字段.isEmpty else {
+            return ""
+        }
+
+        let 广告字段列表 = 结果.广告字段
+        let 字段数 = 广告字段列表.count
+
+        // 生成字段修改代码
+        var 修改代码 = ""
+        for (索引, 字段) in 广告字段列表.enumerated() {
+            let 路径部分 = 字段.字段路径.components(separatedBy: ".")
+            guard 路径部分.count >= 2 else { continue }
+
+            // 生成对象存在性检查和修改代码
+            var 检查代码 = ""
+            var 访问路径 = "body"
+            for i in 0..<(路径部分.count - 1) {
+                访问路径 += ".\(路径部分[i])"
+                检查代码 += "        if (!\(访问路径) || typeof \(访问路径) !== \"object\" || Array.isArray(\(访问路径))) \(访问路径) = {};\n"
+            }
+
+            // 字段名
+            let 字段名 = 路径部分.last!
+            let 完整路径 = 字段.字段路径.replacingOccurrences(of: ".", with: "")
+
+            // 根据字段类型设置空值
+            var 空值 = "{}"
+            if 字段.类型 == .广告标记 {
+                空值 = "0"
+            } else if 字段.类型 == .广告链接 || 字段.类型 == .广告图片 {
+                空值 = "\"\""
+            } else if 字段.类型 == .广告数组 {
+                空值 = "[]"
+            }
+
+            修改代码 += 检查代码
+            修改代码 += "        \(访问路径).\(字段名) = \(空值);\n"
+            修改代码 += "        console.log(\"✅ [广告\(索引 + 1)/\(字段数)] 已屏蔽：\(字段.字段路径) = \(空值)\");\n"
+        }
+
+        // 生成完整脚本
+        let 脚本 = """
+// ======================
+// 功能：广告屏蔽脚本（一键生成）
+// 共识别到\(字段数)个广告字段，自动设为空值
+// 遵循圈X实战标准流程：IIFE包裹→响应检查→非JSON放行→try-catch→修改→$done返回
+// ======================
+
+(function() {
+    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
+    console.log("🚀 [1] 广告屏蔽脚本触发！共识别到\(字段数)个广告字段");
+
+    // 1. 检查响应对象是否存在
+    if (typeof $response === 'undefined' || $response === null) {
+        console.log("❌ [错误] $response 未定义！请在圈X的 [rewrite_local] 里使用 script-response-body");
+        $done({}); return;
+    }
+
+    var 原始响应体 = $response.body;
+    if (!原始响应体) {
+        console.log("⚠️ [错误] 响应体为空！可能接口返回了 204/304，或者需要开启 MitM");
+        $done({}); return;
+    }
+    console.log("📦 [2] 成功获取 Body，长度: " + 原始响应体.length);
+
+    // 2. 判断是不是JSON（非JSON直接放行，不破坏页面）
+    var contentType = ($response.headers && $response.headers["Content-Type"]) || "";
+    var isJson = contentType.indexOf("json") !== -1 ||
+                 (原始响应体.charAt(0) === "{" || 原始响应体.charAt(0) === "[");
+    if (!isJson) {
+        console.log("⚠️ 非 JSON 响应（网页/图片等），直接放行");
+        $done({}); return;
+    }
+    console.log("✅ [2.1] 确认是 JSON 响应");
+
+    // ====== 核心修改函数 ======
+    function 执行广告屏蔽(body) {
+        console.log("🧹 [3] 开始执行广告屏蔽，共\(字段数)个字段");
+
+\(修改代码)
+        console.log("🎉 [4] 广告屏蔽执行完毕！");
+        return body;
+    }
+
+    try {
+        var body = JSON.parse(原始响应体);
+        console.log("✅ [2.2] JSON 解析成功");
+
+        // 调用核心修改函数
+        body = 执行广告屏蔽(body);
+
+        console.log("🎉 [5] 脚本执行成功！准备返回修改后的响应");
+        $done({ body: JSON.stringify(body) });
+    } catch (e) {
+        console.log("❌ [异常] 解析失败：" + e + "，原样放行");
+        $done({ body: 原始响应体 });
+    }
+})();
+"""
+        return 脚本
     }
 }

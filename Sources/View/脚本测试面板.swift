@@ -163,6 +163,23 @@ struct 脚本测试面板: View {
                     }
                 }
 
+                // 广告分析按钮（一键分析响应体中的广告信息并生成屏蔽脚本）
+                Button(action: {
+                    测试视图模型.分析广告信息()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "shield.slash")
+                            .font(.caption)
+                        Text("广告分析")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.orange)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8) // 8pt垂直内边距
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(8)
+                }
+
                 // 缓存状态指示
                 if let 响应体 = 测试视图模型.真实响应体, !响应体.isEmpty {
                     Text("\(响应体.count)字符")
@@ -354,6 +371,8 @@ struct 脚本测试面板: View {
         .background(Color(.systemBackground))
         // 复制成功提示浮层
         .overlay(复制成功浮层)
+        // 广告分析弹窗覆盖层
+        .overlay(广告分析弹窗覆盖层)
         // iOS14兼容：sheet(item:)在iOS14有bug无法弹出，改用isPresented+枚举判断
         .sheet(isPresented: $测试视图模型.显示弹窗) {
             if let 弹窗类型 = 测试视图模型.当前弹窗 {
@@ -389,6 +408,21 @@ struct 脚本测试面板: View {
                     .padding(.bottom, 40)
                 }
                 .transition(.move(edge: .bottom))
+            }
+        }
+    }
+
+    /// 广告分析弹窗覆盖层
+    private var 广告分析弹窗覆盖层: some View {
+        Group {
+            if 测试视图模型.显示广告分析弹窗 {
+                广告分析弹窗(
+                    测试视图模型: 测试视图模型,
+                    编辑器视图模型: 编辑器视图模型,
+                    关闭: {
+                        测试视图模型.显示广告分析弹窗 = false
+                    }
+                )
             }
         }
     }

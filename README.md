@@ -69,6 +69,18 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.6.6
+- 测试面板新增广告分析功能：
+  - 在辅助操作行新增「广告分析」按钮（橙色盾牌图标）
+  - 一键分析真实响应体（或模拟响应体）中包含的所有广告相关字段
+  - 支持识别的广告字段类型：广告标记（isAd/hasAd/ad/ads/globalData/appver等）、广告链接（adUrl/adLink等）、广告图片（adImage/adImg/bannerImage等）、广告数组
+  - 广告分析弹窗展示所有识别到的字段，包含字段路径、类型标签、当前值
+  - 「一键生成广告屏蔽脚本」按钮：自动将所有识别到的广告字段设为空值（标记类设为0，链接/图片类设为空字符串，数组类设为空数组，对象类设为空对象{}）
+  - 生成的脚本遵循圈X标准四步流程：IIFE包裹→$response检查→非JSON放行→try-catch→修改字段→JSON.stringify→$done返回，每步详细console.log
+  - 生成后自动写入编辑器并保存
+  - 新增文件：Sources/View/广告分析弹窗.swift
+  - 修改文件：Sources/ViewModel/脚本测试视图模型.swift、Sources/View/脚本测试面板.swift
+
 ### v1.6.5
 - 全盘排查后彻底修复三个bug的所有根源：
   - 【bug1修复】双击文件夹无反应 → 根因是SwiftUI的Button自带tap手势与onTapGesture(count:2)冲突，第一次tap被Button拦截。修复：移除Button，直接使用Image + 点击计数方式区分单击（0.2秒内无第二次tap→打开文档选择器）和双击（立即触发手动检测更新）
