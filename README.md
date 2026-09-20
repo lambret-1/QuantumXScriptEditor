@@ -69,6 +69,13 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.9
+- 优化手动更新检测入口：
+  - 删除导航栏左侧的手动检查更新图标（arrow.up.arrow.down.circle），简化界面
+  - 手动更新检测改为长按导航栏左侧的文件夹图标（folder.badge.plus）2秒触发，点击文件夹图标仍为导入文件功能
+  - 使用SwiftUI的onLongPressGesture(minimumDuration: 2.0)实现长按手势，与点击操作互不冲突
+  - 涉及文件：Sources/View/脚本列表页.swift
+
 ### v1.5.8
 - 参考GitHub仓库（lambret-1/GitHub）的已验证配置，彻底修复Share Extension共享扩展未出现在iOS共享菜单的问题，找到三个关键配置错误：
   - 【关键修复1】dependencies中添加embed: true。XcodeGen需要显式设置embed: true才能确保App Extension被正确嵌入到.app/PlugIns目录中（之前只写了target没有embed）

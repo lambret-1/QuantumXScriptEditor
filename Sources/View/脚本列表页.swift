@@ -97,19 +97,14 @@ struct 脚本列表页: View {
                 .navigationBarTitle("圈X脚本编辑器", displayMode: .large)
                 .navigationBarItems(
                     leading:
-                        HStack(spacing: 16) { // 16pt间距，更新检测和导入文件按钮
-                            Button(action: {
-                                手动检测更新()
-                            }) {
-                                Image(systemName: "arrow.up.arrow.down.circle")
-                                    .font(.title3) // 标题3字号，更新检测按钮
-                            }
-                            Button(action: {
-                                显示文档选择器 = true
-                            }) {
-                                Image(systemName: "folder.badge.plus")
-                                    .font(.title3) // 标题3字号，导入文件按钮
-                            }
+                        Button(action: {
+                            显示文档选择器 = true
+                        }) {
+                            Image(systemName: "folder.badge.plus")
+                                .font(.title3) // 标题3字号，导入文件按钮；长按2秒触发手动检测更新
+                        }
+                        .onLongPressGesture(minimumDuration: 2.0) { // 长按2秒触发手动更新检测
+                            手动检测更新()
                         },
                     trailing:
                         Button(action: {
