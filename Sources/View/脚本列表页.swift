@@ -38,8 +38,16 @@ struct 脚本列表页: View {
     @State private var 显示删除确认 = false
     /// 文件夹提示文本（打开文件夹后显示）
     @State private var 文件夹提示: String?
-    /// 外部文件导入后自动打开的脚本ID（用于编程式导航）
-    @State private var 自动打开脚本ID: UUID?
+    /// 外部导入管理器（观察待导入队列变化）
+    @ObservedObject private var 导入管理器 = 外部导入管理器.共享
+    /// 自动导航用：待编辑的脚本
+    @State private var 待编辑脚本: 脚本模型?
+    /// 自动导航用：是否激活导航
+    @State private var 导航激活 = false
+    /// 单击手势计时器（用于区分单击和双击）
+    @State private var 单击计时器: Timer?
+    /// 文件夹图标点击计数（用于区分单击和双击）
+    @State private var 点击计数 = 0
     /// 是否显示文档选择器（导入.js文件）
     @State private var 显示文档选择器 = false
 
@@ -52,7 +60,7 @@ struct 脚本列表页: View {
                         空态视图()
                     } else {
                         ForEach(视图模型.存储.脚本列表) { 脚本 in
-                            NavigationLink(destination: 脚本编辑器页(脚本: 脚本, 存储: 视图模型.存储), tag: 脚本.id, selection: $自动打开脚本ID) {
+                            NavigationLink(destination: 脚本编辑器页(脚本: 脚本, 存储: 视图模型.存储)) {
                                 脚本行视图(脚本: 脚本)
                             }
                             .contextMenu {
@@ -97,15 +105,14 @@ struct 脚本列表页: View {
                 .navigationBarTitle("圈X脚本编辑器", displayMode: .large)
                 .navigationBarItems(
                     leading:
-                        Button(action: {
-                            显示文档选择器 = true
-                        }) {
-                            Image(systemName: "folder.badge.plus")
-                                .font(.title3) // 标题3字号，导入文件按钮；双击触发手动检测更新
-                        }
-                        .onTapGesture(count: 2) { // 双击触发手动更新检测
-                            手动检测更新()
-                        },
+                        // 不使用Button，避免Button自带tap手势与双击手势冲突
+                        // 使用Image + tap计数方式区分单击（打开文档选择器）和双击（手动检测更新）
+                        Image(systemName: "folder.badge.plus")
+                            .font(.title3) // 标题3字号，导入文件按钮；单击打开文件，双击检测更新
+                            .contentShape(Rectangle()) // 扩大点击区域，方便点击
+                            .onTapGesture {
+                                处理文件夹点击()
+                            },
                     trailing:
                         Button(action: {
                             视图模型.显示新建弹窗 = true
@@ -123,10 +130,17 @@ struct 脚本列表页: View {
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                     前台进入检测更新()
                 }
-                // 【新增】监听外部.js文件打开通知（通过"打开方式"导入文件）
-                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("打开外部JS文件通知"))) { 通知 in
-                    处理外部文件导入(通知)
+                // 【新增】观察外部导入管理器的待导入队列变化（替代通知，解决冷启动通知丢失问题）
+                .onReceive(导入管理器.$待导入队列) { _ in
+                    处理待导入队列()
                 }
+
+                // 隐藏的NavigationLink，用于自动导航到编辑器（iOS14兼容，比tag/selection更可靠）
+                NavigationLink(destination: 待编辑脚本.map { 脚本编辑器页(脚本: $0, 存储: 视图模型.存储) },
+                               isActive: $导航激活) {
+                    EmptyView()
+                }
+                .hidden()
 
                 // 错误提示浮层
                 if let 错误 = 视图模型.错误提示 {
@@ -324,13 +338,37 @@ struct 脚本列表页: View {
         }
     }
 
+    /// 处理文件夹图标点击（通过计数区分单击和双击）
+    /// 单击：打开文档选择器导入文件
+    /// 双击：手动检测更新
+    private func 处理文件夹点击() {
+        点击计数 += 1
+        if 点击计数 == 1 {
+            // 第一次点击，延迟0.2秒等待第二次点击
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                if self.点击计数 == 1 {
+                    // 只有一次点击，执行单击操作
+                    self.显示文档选择器 = true
+                }
+                self.点击计数 = 0
+            }
+        } else if 点击计数 == 2 {
+            // 第二次点击，立即执行双击操作
+            点击计数 = 0
+            手动检测更新()
+        }
+    }
+
     /// 处理冷启动时通过"打开方式"导入的待处理文件队列
     private func 处理待导入队列() {
-        guard 外部导入管理器.共享.有待导入 else { return }
-        let 队列 = 外部导入管理器.共享.取出全部待导入()
+        guard 导入管理器.有待导入 else { return }
+        guard !导入管理器.处理中 else { return } // 防止重复导入
+        导入管理器.标记处理开始()
+        let 队列 = 导入管理器.取出全部待导入()
         for (文件名, 内容) in 队列 {
             创建脚本并自动打开(文件名: 文件名, 内容: 内容)
         }
+        导入管理器.标记处理结束()
     }
 
     /// 创建脚本并自动打开编辑器（统一处理外部导入和文档选择器导入）
@@ -339,11 +377,11 @@ struct 脚本列表页: View {
     ///   - 内容: 文件内容
     private func 创建脚本并自动打开(文件名: String, 内容: String) {
         if let 新脚本 = 视图模型.从外部文件创建脚本(文件名: 文件名, 内容: 内容) {
-            // 延迟两帧确保列表已刷新，然后自动导航到编辑器
+            // 使用隐藏的NavigationLink自动导航（比tag/selection更可靠，iOS14兼容）
+            // 延迟一帧确保列表已刷新
             DispatchQueue.main.async {
-                DispatchQueue.main.async {
-                    self.自动打开脚本ID = 新脚本.id
-                }
+                self.待编辑脚本 = 新脚本
+                self.导航激活 = true
             }
             // 显示导入成功提示
             视图模型.错误提示 = "已导入脚本：\(文件名)"
@@ -353,24 +391,13 @@ struct 脚本列表页: View {
         }
     }
 
-    /// 处理外部.js文件导入（通过"打开方式"从其他App导入文件）
-    /// - Parameter 通知: 包含文件名和内容的通知
-    private func 处理外部文件导入(_ 通知: Notification) {
-        guard let 用户信息 = 通知.userInfo,
-              let 文件名 = 用户信息["文件名"] as? String,
-              let 内容 = 用户信息["内容"] as? String else {
-            return
-        }
-        创建脚本并自动打开(文件名: 文件名, 内容: 内容)
-    }
-
     /// 处理从文档选择器导入的文件
     /// - Parameter url: 选择的文件URL
     private func 处理导入文件(_ url: URL) {
-        // 只处理.js/.mjs/.cjs文件
-        let 支持的扩展名 = ["js", "mjs", "cjs"]
+        // 统一支持的扩展名：js/mjs/cjs/txt
+        let 支持的扩展名 = ["js", "mjs", "cjs", "txt"]
         guard 支持的扩展名.contains(url.pathExtension.lowercased()) else {
-            视图模型.错误提示 = "仅支持 .js / .mjs / .cjs 格式文件"
+            视图模型.错误提示 = "仅支持 .js / .mjs / .cjs / .txt 格式文件"
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                 视图模型.错误提示 = nil
             }

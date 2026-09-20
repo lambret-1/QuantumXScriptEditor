@@ -16,17 +16,18 @@ struct 圈X脚本编辑器App: App {
                         // 处理共享扩展的导入请求（quantumx://import?name=文件名）
                         处理共享扩展导入(url)
                     } else {
-                        // 处理外部打开的.js文件：读取内容并发送通知给脚本列表页创建新脚本
+                        // 处理外部打开的.js文件：读取内容并保存到外部导入管理器
                         处理外部打开文件(url)
                     }
                 }
         }
     }
 
-    /// 处理外部打开的文件，读取内容并发送通知
+    /// 处理外部打开的文件，读取内容并保存到外部导入管理器
+    /// 不再使用通知（冷启动时通知可能丢失），改用ObservableObject的@Published让脚本列表页实时观察
     private func 处理外部打开文件(_ url: URL) {
-        // 只处理.js/.mjs/.cjs文件
-        let 支持的扩展名 = ["js", "mjs", "cjs"]
+        // 统一支持的扩展名：js/mjs/cjs/txt
+        let 支持的扩展名 = ["js", "mjs", "cjs", "txt"]
         guard 支持的扩展名.contains(url.pathExtension.lowercased()) else { return }
 
         // 开始访问安全范围资源（App Group或外部文件需要）
@@ -53,14 +54,8 @@ struct 圈X脚本编辑器App: App {
         // 提取文件名（不含扩展名）
         let 文件名 = url.deletingPathExtension().lastPathComponent
 
-        // 发送通知给脚本列表页，创建新脚本并打开编辑器
-        // 同时保存到外部导入管理器，解决冷启动时通知丢失的问题
+        // 保存到外部导入管理器，脚本列表页通过@Published实时观察并处理
         外部导入管理器.共享.添加待导入(文件名: 文件名, 内容: 文件内容)
-        NotificationCenter.default.post(
-            name: NSNotification.Name("打开外部JS文件通知"),
-            object: nil,
-            userInfo: ["文件名": 文件名, "内容": 文件内容]
-        )
     }
 
     /// 处理共享扩展的导入请求（quantumx://import?name=文件名）
@@ -79,17 +74,11 @@ struct 圈X脚本编辑器App: App {
             return
         }
 
-        // 发送通知给脚本列表页，创建新脚本并打开编辑器
-        // 同时保存到外部导入管理器，解决冷启动时通知丢失的问题
+        // 保存到外部导入管理器，脚本列表页通过@Published实时观察并处理
         外部导入管理器.共享.添加待导入(文件名: 文件名, 内容: 剪贴板内容)
-        NotificationCenter.default.post(
-            name: NSNotification.Name("打开外部JS文件通知"),
-            object: nil,
-            userInfo: ["文件名": 文件名, "内容": 剪贴板内容]
-        )
 
-        // 清除剪贴板，保护用户隐私
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        // 延迟1秒清除剪贴板，确保脚本列表页有足够时间读取
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             UIPasteboard.general.string = ""
         }
     }

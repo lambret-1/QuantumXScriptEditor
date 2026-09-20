@@ -69,6 +69,22 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.6.5
+- 全盘排查后彻底修复三个bug的所有根源：
+  - 【bug1修复】双击文件夹无反应 → 根因是SwiftUI的Button自带tap手势与onTapGesture(count:2)冲突，第一次tap被Button拦截。修复：移除Button，直接使用Image + 点击计数方式区分单击（0.2秒内无第二次tap→打开文档选择器）和双击（立即触发手动检测更新）
+  - 【bug2修复】打开文件跳转后未打开浏览 → 4个根源全部修复：
+    - 根源1：冷启动时onOpenURL与onAppear调用顺序不确定，可能丢失或重复导入 → 外部导入管理器改为ObservableObject，使用@Published，脚本列表页通过onReceive实时观察队列变化，不再依赖onAppear一次性检查
+    - 根源2：NavigationLink的tag/selection在iOS14有bug，动态列表时不触发导航 → 改用隐藏的NavigationLink(destination:isActive:)，设置待编辑脚本后激活导航，更可靠
+    - 根源3：外部导入管理器无法被观察 → 改为ObservableObject + @Published
+    - 根源4：文件扩展名检查不一致 → 统一为js/mjs/cjs/txt
+    - 额外：添加防重复导入标记（处理中时忽略新的队列变化）
+  - 【bug3修复】分享点击后卡死 → 3个根源全部修复：
+    - 根源1：附件类型检查不完整，缺少kUTTypeData（从文件App分享时最常见的类型） → 增加kUTTypeData支持，优先级2，同时处理Data和URL两种返回值
+    - 根源2：loadItem回调不在主线程，UI更新无效 → 所有UI更新（更新状态、停止活动指示器）统一通过DispatchQueue.main.async切到主线程
+    - 根源3：extensionContext.open的completionHandler在分享扩展中不被调用，导致永远等待 → 不再依赖completionHandler，调用open后直接延迟0.5秒自动completeRequest关闭扩展
+    - 额外：增加10秒超时保护，防止文件读取卡住导致扩展永远不关闭
+  - 修改文件：外部导入管理器.swift、共享扩展视图控制器.swift、脚本列表页.swift、圈X脚本编辑器App.swift
+
 ### v1.6.4
 - 修复用户反馈的三个bug：
   - 【bug1】长按文件夹图标2秒触发更新检测无反应 → 改为双击文件夹图标触发更新检测（onTapGesture(count: 2)）
