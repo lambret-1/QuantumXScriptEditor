@@ -28,6 +28,8 @@ final class 脚本沙箱服务 {
     private var 开始时间: Date?
     /// 当前进行中的网络任务（用于停止时取消）
     private var 当前网络任务: URLSessionDataTask?
+    /// 当前执行的脚本代码（用于异常时输出出错代码上下文）
+    private var 当前执行代码 = ""
     /// 响应体最大输出字符数（超过则截断）
     private let 响应体最大输出长度 = 500
     /// 输出队列（确保线程安全，所有输出修改都在主队列串行执行）
@@ -57,10 +59,32 @@ final class 脚本沙箱服务 {
         开始时间 = nil
         当前网络任务 = nil
 
-        // 捕获JS运行时异常
-        上下文.exceptionHandler = { [weak self] _, 异常 in
+        // 捕获JS运行时异常，输出详细错误信息（行号、列号、出错代码上下文）
+        上下文.exceptionHandler = { [weak self] 上下文, 异常 in
             guard let 异常 = 异常 else { return }
-            self?.追加输出("[JS错误] \(异常)\n")
+            let 错误名称 = 异常.forProperty("name")?.toString() ?? "Error"
+            let 错误消息 = 异常.forProperty("message")?.toString() ?? 异常.toString()
+            let 行号 = 异常.forProperty("line")?.toInt32() ?? 0
+            let 列号 = 异常.forProperty("column")?.toInt32() ?? 0
+            self?.追加输出("[JS错误] \(错误名称): \(错误消息)\n")
+            if 行号 > 0 {
+                self?.追加输出("[错误位置] 第\(行号)行，第\(列号)列\n")
+                // 输出出错行附近的代码上下文（前后各2行）
+                if let 代码 = self?.当前执行代码 {
+                    let 行数组 = 代码.components(separatedBy: .newlines)
+                    let 起始行 = max(0, Int(行号) - 3)
+                    let 结束行 = min(行数组.count - 1, Int(行号) + 1)
+                    if 起始行 <= 结束行 {
+                        var 上下文文本 = "[代码上下文]\n"
+                        for i in 起始行...结束行 {
+                            let 行号文本 = String(format: "%4d", i + 1)
+                            let 标记 = (i == Int(行号) - 1) ? ">>" : "  "
+                            上下文文本 += "\(标记)\(行号文本): \(行数组[i])\n"
+                        }
+                        self?.追加输出(上下文文本)
+                    }
+                }
+            }
         }
 
         // 基础对象在执行脚本时注入（确保每次执行都是干净环境）
@@ -348,6 +372,7 @@ final class 脚本沙箱服务 {
 
         // 将用户代码包装在IIFE中，模拟圈X真实运行环境，支持顶层return
         let 包装后代码 = "(function() {\n\(代码)\n})();"
+        当前执行代码 = 包装后代码
         let 工作项 = DispatchWorkItem { [weak self] in
             _ = self?.上下文.evaluateScript(包装后代码)
         }
