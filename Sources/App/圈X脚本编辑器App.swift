@@ -1,5 +1,8 @@
 import SwiftUI
 
+/// GBK编码（Swift标准库未直接提供，需通过CoreFoundation转换获取）
+private let gbk编码 = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue)))
+
 /// 应用入口，最低支持iOS14
 @main
 struct 圈X脚本编辑器App: App {
@@ -34,7 +37,7 @@ struct 圈X脚本编辑器App: App {
             文件内容 = 内容
         } else if let 数据 = try? Data(contentsOf: url),
                   let 内容 = String(data: 数据, encoding: .utf8) ??
-                            String(data: 数据, encoding: .gbk) ??
+                            String(data: 数据, encoding: gbk编码) ??
                             String(data: 数据, encoding: .ascii) {
             文件内容 = 内容
         } else {
