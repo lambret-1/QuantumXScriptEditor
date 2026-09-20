@@ -69,6 +69,15 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.3
+- 新增Share Extension（共享扩展），彻底解决App未出现在iOS共享菜单的问题：
+  - 【根本原因】CFBundleDocumentTypes方式对侧载/巨魔商店安装的App经常无效，因为系统LaunchServices无法正确注册UTI。Share Extension是独立的扩展target，会出现在共享面板中间一行的活动图标中，不依赖UTI注册
+  - 【新增共享扩展target】在Project.yml中添加"共享扩展"app-extension target，bundleId为com.quantumx.editor.share，依赖主App
+  - 【共享扩展功能】用户在其他App中分享.js/.txt文件时，共享面板中间一行会显示"导入到圈X脚本编辑器"图标，点击后自动读取文件内容，通过剪贴板传递给主App，然后打开主App创建新脚本
+  - 【URL Scheme】主App新增quantumx:// URL Scheme，共享扩展通过quantumx://import?name=文件名打开主App，主App解析URL后读取剪贴板内容创建脚本，完成后自动清除剪贴板保护隐私
+  - 【支持格式】共享扩展支持.js/.mjs/.cjs/.txt文件，以及纯文本内容，支持UTF-8/GBK/ASCII多编码读取
+  - 【涉及文件】Sources/共享扩展/Info.plist、Sources/共享扩展/共享扩展视图控制器.swift、Sources/App/圈X脚本编辑器App.swift、Info.plist、Project.yml
+
 ### v1.5.2
 - 彻底修复App未出现在iOS共享菜单的问题（找到两个根本原因）：
   - 【根本原因1】Project.yml中的LSSupportsOpeningDocumentsInPlace: true会覆盖Info.plist中的设置，导致Info.plist改了也没用。已同步将Project.yml中改为false

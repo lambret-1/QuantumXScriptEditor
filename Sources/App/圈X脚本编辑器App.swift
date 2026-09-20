@@ -11,8 +11,14 @@ struct 圈X脚本编辑器App: App {
             脚本列表页()
                 .accentColor(.blue) // 全局强调色，统一导航栏与按钮色调
                 .onOpenURL { url in
-                    // 处理外部打开的.js文件：读取内容并发送通知给脚本列表页创建新脚本
-                    处理外部打开文件(url)
+                    // 判断是文件URL还是自定义URL Scheme
+                    if url.scheme == "quantumx" {
+                        // 处理共享扩展的导入请求（quantumx://import?name=文件名）
+                        处理共享扩展导入(url)
+                    } else {
+                        // 处理外部打开的.js文件：读取内容并发送通知给脚本列表页创建新脚本
+                        处理外部打开文件(url)
+                    }
                 }
         }
     }
@@ -53,5 +59,34 @@ struct 圈X脚本编辑器App: App {
             object: nil,
             userInfo: ["文件名": 文件名, "内容": 文件内容]
         )
+    }
+
+    /// 处理共享扩展的导入请求（quantumx://import?name=文件名）
+    /// 共享扩展将文件内容保存到剪贴板，主App读取后创建脚本并清除剪贴板
+    private func 处理共享扩展导入(_ url: URL) {
+        // 解析文件名参数
+        guard let 组件 = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let 查询项 = 组件.queryItems,
+              let 文件名项 = 查询项.first(where: { $0.name == "name" }),
+              let 文件名 = 文件名项.value else {
+            return
+        }
+
+        // 读取剪贴板内容（共享扩展写入的文件内容）
+        guard let 剪贴板内容 = UIPasteboard.general.string else {
+            return
+        }
+
+        // 发送通知给脚本列表页，创建新脚本并打开编辑器
+        NotificationCenter.default.post(
+            name: NSNotification.Name("打开外部JS文件通知"),
+            object: nil,
+            userInfo: ["文件名": 文件名, "内容": 剪贴板内容]
+        )
+
+        // 清除剪贴板，保护用户隐私
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            UIPasteboard.general.string = ""
+        }
     }
 }
