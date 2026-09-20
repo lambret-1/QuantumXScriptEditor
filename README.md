@@ -69,6 +69,13 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.6.3
+- 继续修复v1.6.2中Info.plist自定义字段丢失问题：
+  - 【问题】v1.6.2虽然修复了bundleId和可执行文件名中文问题，但构建后主App的CFBundleURLTypes、CFBundleDocumentTypes、UTImportedTypeDeclarations和共享扩展的NSExtension字段全部丢失
+  - 【原因】XcodeGen的info.properties会覆盖Info.plist文件，而不是合并。自定义字段只写在Info.plist文件中会被覆盖丢失
+  - 【修复】将CFBundleURLTypes、CFBundleDocumentTypes、UTImportedTypeDeclarations全部移到主App的info.properties中；将NSExtension移到共享扩展的info.properties中
+  - 涉及文件：Project.yml
+
 ### v1.6.2
 - 彻底修复无法安装问题（全面排查后修复所有根因）：
   - 【根因1】主App target名是中文"圈X脚本编辑器"，导致XcodeGen的bundleId设置未生效，实际Bundle ID变成com.quantumx.editor.圈X脚本编辑器（包含中文），iOS安装校验直接拒绝。修复：将主App target名改为英文QuantumXScriptEditor

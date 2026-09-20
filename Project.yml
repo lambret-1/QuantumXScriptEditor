@@ -24,7 +24,7 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: 圈X脚本编辑器
-        CFBundleShortVersionString: "1.6.2"
+        CFBundleShortVersionString: "1.6.3"
         CFBundleVersion: "1"
         UILaunchScreen: {}
         UIFileSharingEnabled: true
@@ -33,6 +33,38 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        CFBundleURLTypes:
+          - CFBundleURLName: com.quantumx.editor.import
+            CFBundleURLSchemes:
+              - quantumx
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: JavaScript源码文件
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - com.netscape.javascript-source
+              - public.source-code
+              - public.plain-text
+              - public.data
+            CFBundleTypeExtensions:
+              - js
+              - mjs
+              - cjs
+              - txt
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.netscape.javascript-source
+            UTTypeDescription: JavaScript源码
+            UTTypeConformsTo:
+              - public.source-code
+              - public.plain-text
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - js
+                - mjs
+                - cjs
+              public.mime-type:
+                - application/javascript
+                - text/javascript
     dependencies:
       - target: ShareExtension
         embed: true
@@ -51,5 +83,10 @@ targets:
       path: Sources/共享扩展/Info.plist
       properties:
         CFBundleDisplayName: 导入到圈X脚本编辑器
-        CFBundleShortVersionString: "1.6.2"
+        CFBundleShortVersionString: "1.6.3"
         CFBundleVersion: "1"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: ShareExtension.ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule: TRUEPREDICATE
