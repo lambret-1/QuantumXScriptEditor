@@ -69,6 +69,15 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.4.7
+- 彻底修复测试输出区域无限放大导致测试面板超出屏幕的bug：
+  - 【根本原因】v1.4.6仅通过UITextView自身高度约束限制高度，但SwiftUI中UIViewRepresentable的布局由intrinsicContentSize决定，UITextView的intrinsicContentSize不受自身高度约束限制，导致内容过多时intrinsicContentSize无限大，SwiftUI布局被撑大
+  - 【修复方案1】创建受限高度UITextView子类`受限高度文本视图`，重写intrinsicContentSize属性，返回受最大高度（屏幕高度40%）限制的高度，从根源上防止SwiftUI布局无限放大
+  - 【修复方案2】内容变化时调用invalidateIntrinsicContentSize()通知SwiftUI重新计算布局
+  - 【修复方案3】SwiftUI层面添加frame(maxHeight:屏幕高度40%)双重保险
+  - 【动态滚动模式】内容高度≤最大高度时禁用内部滚动跟随外部ScrollView，内容高度>最大高度时启用内部滚动固定最大高度
+  - 涉及文件：脚本测试面板.swift
+
 ### v1.4.6
 - 修复测试输出区域内容过多时超出屏幕显示的bug：
   - 【根本原因】v1.4.4将彩色输出视图改为UITextView禁用内部滚动+高度自适应后，没有设置最大高度限制，当输出内容很多（如几万字符响应体）时，UITextView高度会非常大，导致整个测试面板超出屏幕
