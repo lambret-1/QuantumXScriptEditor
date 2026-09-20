@@ -406,85 +406,99 @@ struct 脚本测试面板: View {
     }
 }
 
-// MARK: - 彩色输出视图（自动滚动到底部）
+// MARK: - 彩色输出视图（UITextView封装，支持文本选择+自动滚动）
 
-/// 彩色测试输出视图，按日志级别着色，自动滚动到最新内容
-struct 彩色输出视图: View {
+/// 彩色测试输出视图，按日志级别着色，自动滚动到最新内容，支持文本选择复制
+/// 使用UITextView封装保证iOS14兼容性和文本可选择
+struct 彩色输出视图: UIViewRepresentable {
     /// 输出文本
     let 输出文本: String
     /// 是否自动滚动到底部
     let 自动滚动: Bool
     /// 是否自动换行
     let 自动换行: Bool
-    /// 滚动视图底部锚点ID
-    private let 底部锚点 = "底部锚点"
 
-    var body: some View {
-        ScrollViewReader { 代理 in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
-                    if 输出文本.isEmpty {
-                        Text("点击「运行测试」执行脚本，输出将显示在这里...")
-                            .font(.system(size: 12, design: .monospaced)) // 12pt等宽字体，控制台输出风格
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    } else {
-                        ForEach(Array(输出文本.components(separatedBy: "\n").enumerated()), id: \.offset) { 索引, 行 in
-                            Text(行.isEmpty ? " " : 行)
-                                .font(.system(size: 12, design: .monospaced)) // 12pt等宽字体，控制台输出风格
-                                .foregroundColor(行颜色(行))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .fixedSize(horizontal: !自动换行, vertical: false) // 控制是否自动换行
-                        }
-                    }
-                    // 底部锚点，用于自动滚动
-                    Color.clear
-                        .frame(height: 1)
-                        .id(底部锚点)
-                }
-                .padding(8)
+    func makeUIView(context: Context) -> UITextView {
+        let 文本视图 = UITextView()
+        文本视图.isEditable = false // 不可编辑，仅可选择
+        文本视图.isSelectable = true // 【关键】开启文本选择，用户可长按选中复制
+        文本视图.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .regular) // 12pt等宽字体，控制台输出风格
+        文本视图.backgroundColor = .systemBackground
+        文本视图.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8) // 内边距8pt，与原SwiftUI版本一致
+        文本视图.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        return 文本视图
+    }
+
+    func updateUIView(_ 文本视图: UITextView, context: Context) {
+        // 设置自动换行
+        文本视图.textContainer.lineBreakMode = 自动换行 ? .byWordWrapping : .byClipping
+        文本视图.isScrollEnabled = true
+
+        if 输出文本.isEmpty {
+            // 空态提示
+            let 提示属性: [NSAttributedString.Key: Any] = [
+                .font: UIFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+                .foregroundColor: UIColor.secondaryLabel
+            ]
+            文本视图.attributedText = NSAttributedString(string: "点击「运行测试」执行脚本，输出将显示在这里...", attributes: 提示属性)
+            return
+        }
+
+        // 生成彩色属性文本（按行着色）
+        let 属性文本 = NSMutableAttributedString()
+        let 行列表 = 输出文本.components(separatedBy: "\n")
+        for (索引, 行) in 行列表.enumerated() {
+            let 显示文本 = 行.isEmpty ? " " : 行
+            let 行属性: [NSAttributedString.Key: Any] = [
+                .font: UIFont.monospacedSystemFont(ofSize: 12, weight: .regular),
+                .foregroundColor: 行颜色(行)
+            ]
+            属性文本.append(NSAttributedString(string: 显示文本, attributes: 行属性))
+            if 索引 < 行列表.count - 1 {
+                属性文本.append(NSAttributedString(string: "\n", attributes: 行属性))
             }
-            .onChange(of: 输出文本) { _ in
-                // 输出变化时自动滚动到底部（仅当自动滚动开启时）
-                if 自动滚动 {
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        代理.scrollTo(底部锚点, anchor: .bottom)
-                    }
-                }
+        }
+        文本视图.attributedText = 属性文本
+
+        // 自动滚动到底部
+        if 自动滚动 {
+            DispatchQueue.main.async {
+                let 底部范围 = NSMakeRange(属性文本.length - 1, 1)
+                文本视图.scrollRangeToVisible(底部范围)
             }
         }
     }
 
-    /// 根据行内容前缀返回对应颜色
-    private func 行颜色(_ 行: String) -> Color {
+    /// 根据行内容前缀返回对应颜色（UIColor版本，用于NSAttributedString）
+    private func 行颜色(_ 行: String) -> UIColor {
         if 行.hasPrefix("[JS错误]") || 行.hasPrefix("[网络错误]") || 行.hasPrefix("[超时]") || 行.hasPrefix("❌") {
             return .red
         } else if 行.hasPrefix("[通知]") {
-            return Color(UIColor.systemBlue)
+            return .systemBlue
         } else if 行.hasPrefix("[网络请求]") || 行.hasPrefix("[请求头]") || 行.hasPrefix("[请求体]") {
             return .orange
         } else if 行.hasPrefix("[响应头]") || 行.hasPrefix("[响应体]") || 行.hasPrefix("[网络响应]") || 行.hasPrefix("[输入响应体]") {
-            return Color(UIColor.systemTeal)
+            return .systemTeal
         } else if 行.hasPrefix("[完成]") {
-            return .green
+            return .systemGreen
         } else if 行.hasPrefix("[修改后响应体]") {
-            return Color(UIColor.systemGreen) // 修改后响应体用绿色，突出显示输出结果
+            return .systemGreen
         } else if 行.hasPrefix("[状态码]") {
-            return Color(UIColor.systemOrange)
+            return .systemOrange
         } else if 行.hasPrefix("[容错]") || 行.hasPrefix("[降级]") || 行.hasPrefix("[兜底]") {
-            return Color(UIColor.systemYellow) // 容错日志用黄色
+            return .systemYellow
         } else if 行.hasPrefix("[日志]") {
-            return Color(UIColor.systemGray)
+            return .systemGray
         } else if 行.hasPrefix("[耗时]") {
             return .purple
         } else if 行.hasPrefix("[已停止]") {
             return .red
         } else if 行.hasPrefix("==========") {
-            return .secondary
+            return .secondaryLabel
         } else if 行.hasPrefix("目标网址：") || 行.hasPrefix("请求方法：") || 行.hasPrefix("请求头：") || 行.hasPrefix("模拟响应体：") {
-            return .secondary
+            return .secondaryLabel
         }
-        return .primary
+        return .label
     }
 }
 

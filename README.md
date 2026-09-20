@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.4.3
+- 脚本测试面板输出区域开启文本选择功能：
+  - 【根本原因】原彩色输出视图使用SwiftUI的ScrollView+Text实现，Text在iOS14上不可选择，用户无法长按选中复制输出内容
+  - 【修复方案】将彩色输出视图重写为UITextView封装（UIViewRepresentable），isEditable=false+isSelectable=true，用户可长按选中任意文本进行复制
+  - 【保留功能】彩色文本显示（NSAttributedString按日志级别着色）、自动滚动到底部、自动换行开关、空态提示全部保留
+  - 【iOS14兼容】UITextView是UIKit基础控件，iOS14完全支持，不依赖SwiftUI的textSelection修饰符（iOS15+才有）
+  - 涉及文件：脚本测试面板.swift
+
 ### v1.4.2
 - 修复综合模板字段覆盖不全问题：
   - 【根本原因】综合模板只处理了会员状态/到期时间/等级、广告标记/链接/图片、用户名、积分余额、手机号、邮箱，遗漏了广告数组、用户ID、头像、登录Token、性别、生日共6种字段类型
