@@ -69,6 +69,12 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.5
+- 继续修复Share Extension共享扩展未出现在iOS共享菜单的问题：
+  - 将NSExtensionActivationRule从字典格式改为谓词格式（SUBQUERY），明确指定支持public.file-url、public.plain-text、public.source-code、public.data四种UTI类型，确保系统能准确判断我们的扩展可以处理.js文件
+  - 谓词格式比字典格式更精确，可以控制哪些类型的共享内容会触发我们的扩展显示
+  - 涉及文件：Sources/共享扩展/Info.plist
+
 ### v1.5.4
 - 修复Share Extension共享扩展未出现在iOS共享菜单的问题（找到两个根本原因）：
   - 【根本原因1】dependencies方向反了。之前是共享扩展依赖主App，正确应该是主App依赖共享扩展，这样Xcode才会自动将共享扩展嵌入到App包的PlugIns目录中。已修改：主App添加dependencies: [target: 共享扩展]，移除共享扩展的dependencies
