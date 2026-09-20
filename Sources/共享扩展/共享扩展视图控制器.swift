@@ -66,7 +66,7 @@ class 共享扩展视图控制器: SLComposeServiceViewController {
         var 找到文件 = false
         for 附件 in 扩展项.attachments ?? [] {
             // 检查是否是文件URL（kUTTypeFileURL）
-            if 附件.hasItemConformingToTypeIdentifier: kUTTypeFileURL as String {
+            if 附件.hasItemConformingToTypeIdentifier(kUTTypeFileURL as String) {
                 找到文件 = true
                 附件.loadItem(forTypeIdentifier: kUTTypeFileURL as String, options: nil) { [weak self] 结果, 错误 in
                     guard let self = self else { return }
@@ -81,7 +81,7 @@ class 共享扩展视图控制器: SLComposeServiceViewController {
                 break
             }
             // 检查是否是文本内容
-            if 附件.hasItemConformingToTypeIdentifier: kUTTypePlainText as String {
+            if 附件.hasItemConformingToTypeIdentifier(kUTTypePlainText as String) {
                 找到文件 = true
                 附件.loadItem(forTypeIdentifier: kUTTypePlainText as String, options: nil) { [weak self] 结果, 错误 in
                     guard let self = self else { return }
@@ -158,7 +158,7 @@ class 共享扩展视图控制器: SLComposeServiceViewController {
         }
     }
 
-    /// 通过响应者链找到UIApplication并打开URL（Share Extension中没有直接的UIApplication.shared.open）
+    /// 通过响应者链找到UIApplication并打开URL（Share Extension中UIApplication.shared不可用，需通过响应者链查找）
     private func 通过响应者链打开URL(_ url: URL) {
         var 响应者: UIResponder? = self
         while 响应者 != nil {
@@ -167,11 +167,6 @@ class 共享扩展视图控制器: SLComposeServiceViewController {
                 return
             }
             响应者 = 响应者?.next
-        }
-        // 备用方案
-        let 选择器 = Selector(("openURL:"))
-        if UIApplication.shared.responds(to: 选择器) {
-            UIApplication.shared.perform(选择器, with: url)
         }
     }
 }
