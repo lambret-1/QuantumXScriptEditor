@@ -54,6 +54,8 @@ struct 圈X脚本编辑器App: App {
         let 文件名 = url.deletingPathExtension().lastPathComponent
 
         // 发送通知给脚本列表页，创建新脚本并打开编辑器
+        // 同时保存到外部导入管理器，解决冷启动时通知丢失的问题
+        外部导入管理器.共享.添加待导入(文件名: 文件名, 内容: 文件内容)
         NotificationCenter.default.post(
             name: NSNotification.Name("打开外部JS文件通知"),
             object: nil,
@@ -78,6 +80,8 @@ struct 圈X脚本编辑器App: App {
         }
 
         // 发送通知给脚本列表页，创建新脚本并打开编辑器
+        // 同时保存到外部导入管理器，解决冷启动时通知丢失的问题
+        外部导入管理器.共享.添加待导入(文件名: 文件名, 内容: 剪贴板内容)
         NotificationCenter.default.post(
             name: NSNotification.Name("打开外部JS文件通知"),
             object: nil,

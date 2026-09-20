@@ -101,9 +101,9 @@ struct 脚本列表页: View {
                             显示文档选择器 = true
                         }) {
                             Image(systemName: "folder.badge.plus")
-                                .font(.title3) // 标题3字号，导入文件按钮；长按2秒触发手动检测更新
+                                .font(.title3) // 标题3字号，导入文件按钮；双击触发手动检测更新
                         }
-                        .onLongPressGesture(minimumDuration: 2.0) { // 长按2秒触发手动更新检测
+                        .onTapGesture(count: 2) { // 双击触发手动更新检测
                             手动检测更新()
                         },
                     trailing:
@@ -116,6 +116,8 @@ struct 脚本列表页: View {
                 )
                 .onAppear {
                     自动检测更新()
+                    // 检查冷启动时通过"打开方式"导入的待处理文件
+                    处理待导入队列()
                 }
                 // 【新增】APP从后台进入前台时立即检查更新
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
@@ -322,6 +324,35 @@ struct 脚本列表页: View {
         }
     }
 
+    /// 处理冷启动时通过"打开方式"导入的待处理文件队列
+    private func 处理待导入队列() {
+        guard 外部导入管理器.共享.有待导入 else { return }
+        let 队列 = 外部导入管理器.共享.取出全部待导入()
+        for (文件名, 内容) in 队列 {
+            创建脚本并自动打开(文件名: 文件名, 内容: 内容)
+        }
+    }
+
+    /// 创建脚本并自动打开编辑器（统一处理外部导入和文档选择器导入）
+    /// - Parameters:
+    ///   - 文件名: 文件名（不含扩展名）
+    ///   - 内容: 文件内容
+    private func 创建脚本并自动打开(文件名: String, 内容: String) {
+        if let 新脚本 = 视图模型.从外部文件创建脚本(文件名: 文件名, 内容: 内容) {
+            // 延迟两帧确保列表已刷新，然后自动导航到编辑器
+            DispatchQueue.main.async {
+                DispatchQueue.main.async {
+                    self.自动打开脚本ID = 新脚本.id
+                }
+            }
+            // 显示导入成功提示
+            视图模型.错误提示 = "已导入脚本：\(文件名)"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                视图模型.错误提示 = nil
+            }
+        }
+    }
+
     /// 处理外部.js文件导入（通过"打开方式"从其他App导入文件）
     /// - Parameter 通知: 包含文件名和内容的通知
     private func 处理外部文件导入(_ 通知: Notification) {
@@ -330,18 +361,7 @@ struct 脚本列表页: View {
               let 内容 = 用户信息["内容"] as? String else {
             return
         }
-        // 调用视图模型创建脚本
-        if let 新脚本 = 视图模型.从外部文件创建脚本(文件名: 文件名, 内容: 内容) {
-            // 延迟一帧后自动导航到编辑器，确保列表已刷新
-            DispatchQueue.main.async {
-                自动打开脚本ID = 新脚本.id
-            }
-            // 显示导入成功提示
-            视图模型.错误提示 = "已导入脚本：\(文件名)"
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                视图模型.错误提示 = nil
-            }
-        }
+        创建脚本并自动打开(文件名: 文件名, 内容: 内容)
     }
 
     /// 处理从文档选择器导入的文件
@@ -386,18 +406,8 @@ struct 脚本列表页: View {
         // 提取文件名（不含扩展名）
         let 文件名 = url.deletingPathExtension().lastPathComponent
 
-        // 调用视图模型创建脚本
-        if let 新脚本 = 视图模型.从外部文件创建脚本(文件名: 文件名, 内容: 文件内容) {
-            // 延迟一帧后自动导航到编辑器，确保列表已刷新
-            DispatchQueue.main.async {
-                自动打开脚本ID = 新脚本.id
-            }
-            // 显示导入成功提示
-            视图模型.错误提示 = "已导入脚本：\(文件名)"
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                视图模型.错误提示 = nil
-            }
-        }
+        // 使用统一方法创建脚本并自动打开编辑器
+        创建脚本并自动打开(文件名: 文件名, 内容: 文件内容)
     }
 
     /// 确认重命名脚本

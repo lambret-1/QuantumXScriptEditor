@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.6.4
+- 修复用户反馈的三个bug：
+  - 【bug1】长按文件夹图标2秒触发更新检测无反应 → 改为双击文件夹图标触发更新检测（onTapGesture(count: 2)）
+  - 【bug2】通过"打开方式"从文件App跳转到我们App后，没有打开文件浏览器/编辑器 → 根因是冷启动时onOpenURL在脚本列表页初始化前调用，通知丢失。修复：新增外部导入管理器单例，App入口收到外部文件后同时保存到管理器和发送通知，脚本列表页onAppear时检查管理器队列处理待导入文件；创建脚本后延迟两帧确保列表刷新再自动导航到编辑器
+  - 【bug3】共享扩展点击后卡死在系统文件App → 根因是使用SLComposeServiceViewController复杂UI，且通过响应者链查找UIApplication打开URL不可靠。修复：重写共享扩展为简单UIViewController，居中显示活动指示器和状态文字，viewDidAppear后自动处理共享内容，使用extensionContext.open(url)标准方式打开主App，打开成功后自动completeRequest关闭扩展，失败时显示错误2秒后自动关闭
+  - 新增文件：Sources/Model/外部导入管理器.swift
+  - 修改文件：Sources/View/脚本列表页.swift、Sources/App/圈X脚本编辑器App.swift、Sources/共享扩展/共享扩展视图控制器.swift
+
 ### v1.6.3
 - 继续修复v1.6.2中Info.plist自定义字段丢失问题：
   - 【问题】v1.6.2虽然修复了bundleId和可执行文件名中文问题，但构建后主App的CFBundleURLTypes、CFBundleDocumentTypes、UTImportedTypeDeclarations和共享扩展的NSExtension字段全部丢失
