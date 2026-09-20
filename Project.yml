@@ -17,7 +17,7 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: 圈X脚本编辑器
-        CFBundleShortVersionString: "1.4.5"
+        CFBundleShortVersionString: "1.4.6"
         CFBundleVersion: "1"
         UILaunchScreen: {}
         UIFileSharingEnabled: true
