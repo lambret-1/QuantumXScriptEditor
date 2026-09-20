@@ -69,6 +69,13 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.6
+- 彻底修复Share Extension共享扩展未出现在iOS共享菜单的问题（找到真正根因）：
+  - 【根本原因】未签名构建时（CODE_SIGNING_ALLOWED=NO），Xcode不会自动将App Extension嵌入到.app/PlugIns目录中，导致IPA包中没有共享扩展，系统自然不会显示
+  - 【解决方案】在CI流水线的"打包IPA"步骤中，手动将构建产物中的共享扩展.appex文件复制到.app/PlugIns目录，然后再打包成IPA
+  - 【验证方式】安装后在「文件」App中找到.js文件 → 点「共享」→ 中间一行活动图标往左滑到最右 → 点「更多」→ 找到「导入到圈X脚本编辑器」并开启
+  - 涉及文件：.github/workflows/build.yml
+
 ### v1.5.5
 - 继续修复Share Extension共享扩展未出现在iOS共享菜单的问题：
   - 将NSExtensionActivationRule从字典格式改为谓词格式（SUBQUERY），明确指定支持public.file-url、public.plain-text、public.source-code、public.data四种UTI类型，确保系统能准确判断我们的扩展可以处理.js文件
