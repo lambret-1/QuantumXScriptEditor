@@ -69,6 +69,13 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.4
+- 修复Share Extension共享扩展未出现在iOS共享菜单的问题（找到两个根本原因）：
+  - 【根本原因1】dependencies方向反了。之前是共享扩展依赖主App，正确应该是主App依赖共享扩展，这样Xcode才会自动将共享扩展嵌入到App包的PlugIns目录中。已修改：主App添加dependencies: [target: 共享扩展]，移除共享扩展的dependencies
+  - 【根本原因2】共享扩展视图控制器没有使用标准基类。之前继承自UIViewController，已改为继承自SLComposeServiceViewController（iOS标准分享扩展视图控制器），并添加@objc(共享扩展视图控制器)标记确保NSExtensionPrincipalClass能正确找到类
+  - 【界面优化】共享扩展使用标准分享界面，显示文件名、字符数、内容预览，右上角按钮改为"导入"，点击后通过剪贴板和quantumx URL Scheme传递文件内容给主App
+  - 涉及文件：Sources/共享扩展/共享扩展视图控制器.swift、Project.yml
+
 ### v1.5.3
 - 新增Share Extension（共享扩展），彻底解决App未出现在iOS共享菜单的问题：
   - 【根本原因】CFBundleDocumentTypes方式对侧载/巨魔商店安装的App经常无效，因为系统LaunchServices无法正确注册UTI。Share Extension是独立的扩展target，会出现在共享面板中间一行的活动图标中，不依赖UTI注册
