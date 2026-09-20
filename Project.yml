@@ -12,9 +12,9 @@ targets:
     platform: iOS
     bundleId: com.quantumx.editor
     sources:
-      - Sources:
-          excludes:
-            - 共享扩展
+      - path: Sources
+        excludes:
+          - 共享扩展
       - Assets
     info:
       path: Info.plist
