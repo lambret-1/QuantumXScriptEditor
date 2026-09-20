@@ -37,12 +37,12 @@ struct 广告分析弹窗: View {
                 // 内容区域
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        if let 错误 = 测试视图模型.广告分析错误, !错误.isEmpty {
+                        if !测试视图模型.广告分析错误.isEmpty {
                             // 错误提示
                             HStack {
                                 Image(systemName: "exclamationmark.triangle")
                                     .foregroundColor(.orange)
-                                Text(错误)
+                                Text(测试视图模型.广告分析错误)
                                     .font(.subheadline)
                                     .foregroundColor(.secondary)
                             }

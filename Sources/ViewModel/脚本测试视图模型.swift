@@ -392,7 +392,8 @@ final class 脚本测试视图模型: ObservableObject {
         广告分析结果 = nil
 
         // 获取待分析的响应体：优先真实响应体，其次模拟响应体
-        guard let 响应体 = 真实响应体 ?? 请求体文本, !响应体.isEmpty else {
+        let 响应体 = 真实响应体 ?? 请求体文本
+        guard !响应体.isEmpty else {
             广告分析错误 = "请先获取真实响应体或输入模拟响应体"
             return
         }
