@@ -69,6 +69,16 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.6.8
+- 修复脚本编辑页输入文字时屏幕滚动（乱跳）的bug：
+  - 【根因1】textViewDidChange中每次输入都重新设置整个attributedText，导致UITextView重新计算布局，contentSize改变，手动恢复contentOffset时偏移量已失效，造成屏幕跳动
+  - 【修复1】不再手动恢复contentOffset，改用scrollRangeToVisible让系统自然滚动确保光标可见，避免与系统自动滚动冲突
+  - 【根因2】正在编辑标志位用DispatchQueue.main.async立即重置，导致下一个runloop就可能触发updateUIView同步文本，二次刷新attributedText造成跳动
+  - 【修复2】标志位重置延迟从立即改为0.5秒，确保用户连续输入期间不会被外部同步打断
+  - 【根因3】updateUIView中只检查正在编辑标志位，未检查文本视图是否是第一响应者（正在输入）
+  - 【修复3】增加isFirstResponder检查，三重保护（正在编辑标志位+第一响应者+文本确实不同）确保编辑状态下完全跳过外部同步
+  - 修改文件：Sources/View/带行号编辑器.swift
+
 ### v1.6.7
 - 广告分析功能优化：
   - 【优化1】一键生成广告屏蔽脚本按钮置顶，放在广告字段列表上方，方便用户快速操作
