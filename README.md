@@ -69,6 +69,13 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.7
+- 继续修复App未出现在iOS共享菜单/打开方式列表的问题：
+  - 重新添加UTImportedTypeDeclarations，导入系统标准JavaScript UTI（com.netscape.javascript-source），并关联.js/.mjs/.cjs扩展名和MIME类型
+  - CFBundleDocumentTypes的LSItemContentTypes中添加com.netscape.javascript-source，确保系统能准确识别我们App支持JavaScript文件
+  - 之前移除了自定义UTI但只使用public.source-code等泛用UTI，可能导致系统无法准确关联到.js文件扩展名
+  - 涉及文件：Info.plist
+
 ### v1.5.6
 - 彻底修复Share Extension共享扩展未出现在iOS共享菜单的问题（找到真正根因）：
   - 【根本原因】未签名构建时（CODE_SIGNING_ALLOWED=NO），Xcode不会自动将App Extension嵌入到.app/PlugIns目录中，导致IPA包中没有共享扩展，系统自然不会显示
