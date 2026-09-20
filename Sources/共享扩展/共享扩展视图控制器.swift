@@ -5,8 +5,8 @@ import MobileCoreServices
 /// 共享扩展主视图控制器
 /// 继承自SLComposeServiceViewController（iOS标准分享扩展视图控制器）
 /// 处理从其他App分享的.js文件，读取内容后通过URL Scheme打开主App导入
-@objc(共享扩展视图控制器)
-class 共享扩展视图控制器: SLComposeServiceViewController {
+@objc(ShareViewController)
+class ShareViewController: SLComposeServiceViewController {
 
     /// 保存读取到的文件内容
     private var 文件内容: String = ""

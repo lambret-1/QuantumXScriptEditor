@@ -69,6 +69,13 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.8
+- 参考GitHub仓库（lambret-1/GitHub）的已验证配置，彻底修复Share Extension共享扩展未出现在iOS共享菜单的问题，找到三个关键配置错误：
+  - 【关键修复1】dependencies中添加embed: true。XcodeGen需要显式设置embed: true才能确保App Extension被正确嵌入到.app/PlugIns目录中（之前只写了target没有embed）
+  - 【关键修复2】NSExtensionActivationRule改为TRUEPREDICATE。之前用复杂的SUBQUERY谓词可能有语法问题，TRUEPREDICATE是最简单可靠的激活规则，表示任何类型的共享内容都可以触发扩展
+  - 【关键修复3】NSExtensionPrincipalClass改为$(PRODUCT_MODULE_NAME).ShareViewController格式。必须包含模块名前缀，系统才能找到入口类。同时将视图控制器类名从中文改为英文ShareViewController（Xcode对中文类名在扩展中支持可能有问题），添加@objc(ShareViewController)标记
+  - 涉及文件：Project.yml、Sources/共享扩展/Info.plist、Sources/共享扩展/共享扩展视图控制器.swift
+
 ### v1.5.7
 - 继续修复App未出现在iOS共享菜单/打开方式列表的问题：
   - 重新添加UTImportedTypeDeclarations，导入系统标准JavaScript UTI（com.netscape.javascript-source），并关联.js/.mjs/.cjs扩展名和MIME类型

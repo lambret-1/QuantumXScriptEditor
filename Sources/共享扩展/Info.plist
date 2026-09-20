@@ -17,7 +17,7 @@
     <key>CFBundlePackageType</key>
     <string>XPC!</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.5.7</string>
+    <string>1.5.8</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>NSExtension</key>
@@ -25,11 +25,11 @@
         <key>NSExtensionPointIdentifier</key>
         <string>com.apple.share-services</string>
         <key>NSExtensionPrincipalClass</key>
-        <string>共享扩展视图控制器</string>
+        <string>$(PRODUCT_MODULE_NAME).ShareViewController</string>
         <key>NSExtensionAttributes</key>
         <dict>
             <key>NSExtensionActivationRule</key>
-            <string>SUBQUERY (extensionItems, $extensionItem, SUBQUERY ($extensionItem.attachments, $attachment, ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.file-url" OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.plain-text" OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.source-code" OR ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.data").@count &gt;= 1).@count &gt;= 1</string>
+            <string>TRUEPREDICATE</string>
         </dict>
     </dict>
 </dict>
