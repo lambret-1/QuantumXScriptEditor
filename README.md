@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.4.1
+- 智能分析新增globalData、appver广告配置识别：
+  - 【新增识别关键词】广告标记关键词列表新增globalData、appver，智能分析时自动识别这两个全局广告配置/应用版本配置字段
+  - 【特殊处理】识别到globalData或appver时，模板中不删除字段而是设为{}空对象（清空广告配置），其他广告字段仍然递归删除
+  - 【综合模板】综合模板中分离特殊置空字段和普通删除字段，分别生成对应代码
+  - 【单字段模板】去广告字段模板也支持globalData/appver特殊处理
+  - 涉及文件：智能分析服务.swift
+
 ### v1.4.0
 - 修复代码编辑器输入时屏幕乱跳bug：
   - 【根本原因】textViewDidChange中每次输入都重新设置attributedText导致UITextView重新布局，同时SwiftUI绑定触发updateUIView二次刷新，两者共同造成滚动位置跳动

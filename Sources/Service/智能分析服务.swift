@@ -102,7 +102,8 @@ enum 智能分析服务 {
         "isAd", "is_ad", "hasAd", "has_ad", "isAdvert", "is_advert",
         "ad", "ads", "advert", "advertisement", "sponsored", "isSponsored",
         "is_sponsored", "promotion", "isPromotion", "is_promotion",
-        "adFlag", "ad_flag", "adType", "ad_type"
+        "adFlag", "ad_flag", "adType", "ad_type",
+        "globalData", "appver"  // 全局广告配置/应用版本配置，识别后模板中设为{}空对象
     ]
 
     /// 广告链接/图片字段关键词
@@ -741,10 +742,27 @@ enum 智能分析服务 {
             }
         }
 
-        // --- 广告字段删除（函数式递归删除，保持现有写法）---
+        // --- 广告字段处理：globalData/appver设为{}空对象，其他广告字段删除 ---
         let 广告标记字段 = 结果.广告字段.filter { $0.类型 == .广告标记 || $0.类型 == .广告链接 || $0.类型 == .广告图片 }
-        if !广告标记字段.isEmpty {
-            let 字段列表文本 = 广告标记字段.map { "\"\($0.字段路径)\"" }.joined(separator: ", ")
+        // 分离特殊字段（globalData/appver设为{}）和普通广告字段（删除）
+        let 特殊置空字段 = 广告标记字段.filter { 字段 in
+            let 小写路径 = 字段.字段路径.lowercased()
+            return 小写路径.hasSuffix("globaldata") || 小写路径.hasSuffix("appver")
+        }
+        let 普通删除字段 = 广告标记字段.filter { 字段 in
+            let 小写路径 = 字段.字段路径.lowercased()
+            return !小写路径.hasSuffix("globaldata") && !小写路径.hasSuffix("appver")
+        }
+        // 特殊字段设为{}空对象
+        if !特殊置空字段.isEmpty {
+            修改代码块 += "    // ====== 去广告：清空全局广告配置/应用版本配置 ======\n"
+            for 字段 in 特殊置空字段 {
+                修改代码块 += "    body.\(字段.字段路径) = {};  // 清空\(字段.字段路径)广告配置\n"
+            }
+        }
+        // 普通广告字段递归删除
+        if !普通删除字段.isEmpty {
+            let 字段列表文本 = 普通删除字段.map { "\"\($0.字段路径)\"" }.joined(separator: ", ")
             修改代码块 += "    // ====== 去广告：删除识别到的广告字段 ======\n"
             修改代码块 += "    const 要删除的广告字段 = [\(字段列表文本)];\n"
             修改代码块 += "    function 删除广告字段(obj, 路径) {\n"
@@ -974,29 +992,24 @@ try {
 """
     }
 
-    /// 生成去广告字段模板
+    /// 生成去广告字段模板（globalData/appver设为{}空对象，其他广告字段删除）
     private static func 生成去广告字段模板(字段路径列表: [String]) -> String {
-        let 字段列表文本 = 字段路径列表.map { "\"\($0)\"" }.joined(separator: ",\n    ")
-        return """
-// ======================
-// 功能：去广告（删除识别到的广告字段）
-// 识别到\(字段路径列表.count)个广告字段
-// ======================
-// 【第一步】获取响应体，保存原始内容作为兜底
-const 原始响应体 = ($response && $response.body) || "";
-
-// 【第二步】把响应体文本"翻译"成脚本能修改的对象
-let body = {};
-try {
-    body = JSON.parse(原始响应体);
-} catch (解析错误) {
-    console.log("[放行] 响应不是JSON格式，原样返回");
-    $done({ body: 原始响应体 });
-    return;
-}
-
-try {
-    // 【第三步】删除对象里的广告字段
+        // 分离特殊字段（globalData/appver设为{}）和普通广告字段（删除）
+        let 特殊置空字段 = 字段路径列表.filter { 路径 in
+            let 小写 = 路径.lowercased()
+            return 小写.hasSuffix("globaldata") || 小写.hasSuffix("appver")
+        }
+        let 普通删除字段 = 字段路径列表.filter { 路径 in
+            let 小写 = 路径.lowercased()
+            return !小写.hasSuffix("globaldata") && !小写.hasSuffix("appver")
+        }
+        let 字段列表文本 = 普通删除字段.map { "\"\($0)\"" }.joined(separator: ",\n    ")
+        let 置空代码块 = 特殊置空字段.map { 路径 in
+            "    body.\(路径) = {};  // 清空\(路径)广告配置"
+        }.joined(separator: "\n")
+        let 置空注释 = 特殊置空字段.isEmpty ? "" : "\n    // ====== 清空全局广告配置/应用版本配置 ======\n\(置空代码块)\n"
+        let 删除注释 = 普通删除字段.isEmpty ? "" : """
+    // ====== 删除识别到的广告字段 ======
     const 要删除的字段 = [
     \(字段列表文本)
     ];
@@ -1015,7 +1028,27 @@ try {
     要删除的字段.forEach(function(路径) {
         try { 删除字段(body, 路径); } catch (e) {}
     });
+"""
+        return """
+// ======================
+// 功能：去广告（删除/清空识别到的广告字段）
+// 识别到\(字段路径列表.count)个广告字段（globalData/appver设为{}，其他删除）
+// ======================
+// 【第一步】获取响应体，保存原始内容作为兜底
+const 原始响应体 = ($response && $response.body) || "";
 
+// 【第二步】把响应体文本"翻译"成脚本能修改的对象
+let body = {};
+try {
+    body = JSON.parse(原始响应体);
+} catch (解析错误) {
+    console.log("[放行] 响应不是JSON格式，原样返回");
+    $done({ body: 原始响应体 });
+    return;
+}
+
+try {
+    // 【第三步】处理广告字段\(置空注释)\(删除注释)
     // 【第四步】把改好的对象重新"压回"文本字符串，交给圈X
     $done({ body: JSON.stringify(body) });
 } catch (错误) {
