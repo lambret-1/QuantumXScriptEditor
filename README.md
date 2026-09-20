@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.2
+- 彻底修复App未出现在iOS共享菜单的问题（找到两个根本原因）：
+  - 【根本原因1】Project.yml中的LSSupportsOpeningDocumentsInPlace: true会覆盖Info.plist中的设置，导致Info.plist改了也没用。已同步将Project.yml中改为false
+  - 【根本原因2】Bundle Identifier包含中文字符（com.quantumx.editor.圈X脚本编辑器），因为XcodeGen默认用bundleIdPrefix+target name生成，而target name是中文。包含非ASCII字符的Bundle Identifier可能导致UTI注册失败。已给target显式设置bundleId: com.quantumx.editor（纯ASCII）
+  - 【配置简化】移除自定义UTI（com.quantumx.javascript-source）和UTExportedTypeDeclarations，只使用系统标准UTI（public.source-code/public.plain-text/public.data），确保系统能识别
+  - 【扩展支持】CFBundleTypeExtensions添加txt扩展名，增加出现在共享菜单的概率
+  - 涉及文件：Info.plist、Project.yml
+
 ### v1.5.1
 - 继续修复App未出现在iOS共享菜单/打开方式列表中的问题：
   - 【修改1】LSSupportsOpeningDocumentsInPlace从true改为false，确保App在共享菜单中显示为"拷贝到圈X脚本编辑器"而非"打开方式"

@@ -15,7 +15,7 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.5.1</string>
+    <string>1.5.2</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>LSRequiresIPhoneOS</key>
@@ -55,44 +55,17 @@
             <string>Owner</string>
             <key>LSItemContentTypes</key>
             <array>
-                <string>com.quantumx.javascript-source</string>
                 <string>public.source-code</string>
                 <string>public.plain-text</string>
+                <string>public.data</string>
             </array>
             <key>CFBundleTypeExtensions</key>
             <array>
                 <string>js</string>
                 <string>mjs</string>
                 <string>cjs</string>
+                <string>txt</string>
             </array>
-        </dict>
-    </array>
-    <key>UTExportedTypeDeclarations</key>
-    <array>
-        <dict>
-            <key>UTTypeIdentifier</key>
-            <string>com.quantumx.javascript-source</string>
-            <key>UTTypeDescription</key>
-            <string>JavaScript源码文件</string>
-            <key>UTTypeConformsTo</key>
-            <array>
-                <string>public.source-code</string>
-                <string>public.plain-text</string>
-            </array>
-            <key>UTTypeTagSpecification</key>
-            <dict>
-                <key>public.filename-extension</key>
-                <array>
-                    <string>js</string>
-                    <string>mjs</string>
-                    <string>cjs</string>
-                </array>
-                <key>public.mime-type</key>
-                <array>
-                    <string>application/javascript</string>
-                    <string>text/javascript</string>
-                </array>
-            </dict>
         </dict>
     </array>
 </dict>
