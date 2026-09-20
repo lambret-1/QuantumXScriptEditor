@@ -69,6 +69,13 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.1
+- 继续修复App未出现在iOS共享菜单/打开方式列表中的问题：
+  - 【修改1】LSSupportsOpeningDocumentsInPlace从true改为false，确保App在共享菜单中显示为"拷贝到圈X脚本编辑器"而非"打开方式"
+  - 【修改2】LSItemContentTypes中同时添加public.source-code和public.plain-text系统标准UTI，确保系统能识别我们App支持源码/文本文件，提高出现在共享菜单的概率
+  - 【重要提示】iOS系统会缓存App的UTI声明，直接覆盖安装可能不会刷新。必须先卸载旧版App，再重新安装新版，才能在共享菜单中看到我们App
+  - 涉及文件：Info.plist
+
 ### v1.5.0
 - 修复App未出现在iOS共享菜单/打开方式列表中的问题：
   - 【根本原因】之前使用UTImportedTypeDeclarations（导入类型声明）+ com.netscape.javascript-source UTI，导入类型声明只适用于系统已内置但未完全识别的类型，而com.netscape.javascript-source不是iOS系统内置UTI，导致系统无法正确关联.js文件与我们App
