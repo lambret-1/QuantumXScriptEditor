@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.6.0
+- 修复v1.5.3~v1.5.9版本无法安装的严重问题（找到真正根因）：
+  - 【根本原因】共享扩展的PRODUCT_NAME默认使用target名"共享扩展"（中文），导致扩展的可执行文件名是中文，iOS系统无法识别包含非ASCII字符的扩展可执行文件，导致整个IPA无法安装
+  - 【修复1】给共享扩展target添加settings.base.PRODUCT_NAME: ShareExtension（英文），确保可执行文件名是纯ASCII
+  - 【修复2】添加SKIP_INSTALL: YES，确保扩展不会被单独安装，只嵌入到主App中
+  - 【修复3】移除CI流水线中多余的手动复制.appex步骤。Xcode在dependencies设置embed: true后已自动嵌入扩展，手动复制会覆盖已嵌入的扩展并可能导致权限问题
+  - 涉及文件：Project.yml、.github/workflows/build.yml
+
 ### v1.5.9
 - 优化手动更新检测入口：
   - 删除导航栏左侧的手动检查更新图标（arrow.up.arrow.down.circle），简化界面

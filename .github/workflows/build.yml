@@ -54,16 +54,8 @@ jobs:
           echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-          # 未签名构建时Xcode不会自动embed扩展，需手动复制共享扩展.appex到.app/PlugIns目录
+          # Xcode已自动嵌入共享扩展到.app/PlugIns目录（dependencies中设置embed: true），无需手动复制
           APP_PATH="build/Build/Products/Release-iphoneos/圈X脚本编辑器.app"
-          EXTENSION_PATH="build/Build/Products/Release-iphoneos/共享扩展.appex"
-          if [ -d "$EXTENSION_PATH" ]; then
-            mkdir -p "$APP_PATH/PlugIns"
-            cp -R "$EXTENSION_PATH" "$APP_PATH/PlugIns/"
-            echo "已手动嵌入共享扩展: $EXTENSION_PATH -> $APP_PATH/PlugIns/"
-          else
-            echo "警告: 未找到共享扩展.appex文件: $EXTENSION_PATH"
-          fi
 
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
