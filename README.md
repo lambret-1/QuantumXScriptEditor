@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.4.4
+- 修复测试输出区域独立滚动问题，改为跟随全局ScrollView一起滑动：
+  - 【问题】v1.4.3将彩色输出视图改为UITextView后，isScrollEnabled=true导致UITextView成为独立滚动区域，用户滑动时输出区域自己滚动，不能和测试面板其他内容一起滑动
+  - 【修复】设置isScrollEnabled=false禁用UITextView内部滚动，通过sizeThatFits计算内容高度并更新高度约束，让UITextView完整显示所有内容，高度自适应后自然跟随外部ScrollView一起滑动
+  - 【自动滚动】禁用内部滚动后，自动滚动到底部改为通过选中末尾文本触发外部ScrollView自动滚动到可见区域，0.3秒后自动清除选中避免视觉干扰
+  - 【保留功能】文本可选择复制、彩色显示、自动换行开关、空态提示全部保留
+  - 涉及文件：脚本测试面板.swift
+
 ### v1.4.3
 - 脚本测试面板输出区域开启文本选择功能：
   - 【根本原因】原彩色输出视图使用SwiftUI的ScrollView+Text实现，Text在iOS14上不可选择，用户无法长按选中复制输出内容

@@ -406,10 +406,10 @@ struct 脚本测试面板: View {
     }
 }
 
-// MARK: - 彩色输出视图（UITextView封装，支持文本选择+自动滚动）
+// MARK: - 彩色输出视图（UITextView封装，支持文本选择+跟随外部滚动）
 
-/// 彩色测试输出视图，按日志级别着色，自动滚动到最新内容，支持文本选择复制
-/// 使用UITextView封装保证iOS14兼容性和文本可选择
+/// 彩色测试输出视图，按日志级别着色，支持文本选择复制，禁用内部滚动跟随外部ScrollView一起滑动
+/// 使用UITextView封装保证iOS14兼容性和文本可选择，isScrollEnabled=false让高度自适应内容
 struct 彩色输出视图: UIViewRepresentable {
     /// 输出文本
     let 输出文本: String
@@ -421,18 +421,21 @@ struct 彩色输出视图: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let 文本视图 = UITextView()
         文本视图.isEditable = false // 不可编辑，仅可选择
-        文本视图.isSelectable = true // 【关键】开启文本选择，用户可长按选中复制
+        文本视图.isSelectable = true // 开启文本选择，用户可长按选中复制
+        文本视图.isScrollEnabled = false // 【关键】禁用内部滚动，让高度自适应内容，跟随外部ScrollView一起滑动
         文本视图.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .regular) // 12pt等宽字体，控制台输出风格
         文本视图.backgroundColor = .systemBackground
-        文本视图.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8) // 内边距8pt，与原SwiftUI版本一致
-        文本视图.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        文本视图.textContainerInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8) // 内边距8pt
+        文本视图.autoresizingMask = [.flexibleWidth]
+        // 设置内容压缩阻力，确保高度自适应
+        文本视图.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        文本视图.setContentHuggingPriority(.defaultLow, for: .vertical)
         return 文本视图
     }
 
     func updateUIView(_ 文本视图: UITextView, context: Context) {
         // 设置自动换行
         文本视图.textContainer.lineBreakMode = 自动换行 ? .byWordWrapping : .byClipping
-        文本视图.isScrollEnabled = true
 
         if 输出文本.isEmpty {
             // 空态提示
@@ -441,6 +444,8 @@ struct 彩色输出视图: UIViewRepresentable {
                 .foregroundColor: UIColor.secondaryLabel
             ]
             文本视图.attributedText = NSAttributedString(string: "点击「运行测试」执行脚本，输出将显示在这里...", attributes: 提示属性)
+            // 空态时固定最小高度
+            文本视图.constraints.forEach { if $0.firstAttribute == .height { $0.constant = 100 } }
             return
         }
 
@@ -460,11 +465,28 @@ struct 彩色输出视图: UIViewRepresentable {
         }
         文本视图.attributedText = 属性文本
 
-        // 自动滚动到底部
-        if 自动滚动 {
+        // 计算内容高度并更新约束，确保UITextView完整显示所有内容（不滚动）
+        DispatchQueue.main.async {
+            let 计算尺寸 = 文本视图.sizeThatFits(CGSize(width: 文本视图.bounds.width, height: .greatestFiniteMagnitude))
+            // 查找或创建高度约束
+            if let 高度约束 = 文本视图.constraints.first(where: { $0.firstAttribute == .height && $0.secondItem == nil }) {
+                高度约束.constant = 计算尺寸.height
+            } else {
+                let 新高度约束 = 文本视图.heightAnchor.constraint(equalToConstant: 计算尺寸.height)
+                新高度约束.priority = .defaultHigh
+                新高度约束.isActive = true
+            }
+        }
+
+        // 自动滚动：通过选中末尾文本触发外部ScrollView自动滚动到可见区域
+        if 自动滚动 && 属性文本.length > 0 {
             DispatchQueue.main.async {
-                let 底部范围 = NSMakeRange(属性文本.length - 1, 1)
-                文本视图.scrollRangeToVisible(底部范围)
+                let 末尾范围 = NSMakeRange(属性文本.length - 1, 0)
+                文本视图.selectedRange = 末尾范围
+                // 延迟清除选中，避免视觉干扰
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    文本视图.selectedRange = NSMakeRange(NSNotFound, 0)
+                }
             }
         }
     }
