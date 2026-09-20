@@ -237,6 +237,55 @@ struct 脚本测试面板: View {
                 .padding(.horizontal, 16)
             }
 
+            // 模拟响应体编辑（可折叠，默认折叠，用于离线测试和广告分析，与真实响应体分开）
+            if 测试视图模型.展开模拟响应体 {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("模拟响应体（JSON，用于离线测试/广告分析）")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button(action: {
+                            测试视图模型.展开模拟响应体 = false
+                        }) {
+                            Image(systemName: "chevron.up")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    TextEditor(text: $测试视图模型.模拟响应体文本)
+                        .font(.system(size: 12, design: .monospaced)) // 12pt等宽字体，模拟响应体编辑
+                        .frame(height: 80) // 80pt高度，足够编辑JSON
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.orange.opacity(0.4), lineWidth: 1)
+                        )
+                }
+                .padding(.horizontal, 16)
+            } else {
+                // 折叠状态显示展开按钮
+                HStack {
+                    Button(action: {
+                        测试视图模型.展开模拟响应体 = true
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.down")
+                                .font(.caption2)
+                            Text("模拟响应体")
+                                .font(.caption)
+                            if !测试视图模型.模拟响应体文本.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("(\(测试视图模型.模拟响应体文本.count)字符)")
+                                    .font(.caption2)
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                        .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+            }
+
             // 请求头编辑（可折叠，默认折叠）
             VStack(alignment: .leading, spacing: 6) {
                 Button(action: {

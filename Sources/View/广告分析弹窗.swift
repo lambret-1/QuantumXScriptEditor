@@ -37,10 +37,10 @@ struct 广告分析弹窗: View {
                 // 内容区域
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
+                        // 错误/提示信息（始终显示在顶部，如果有的话）
                         if !测试视图模型.广告分析错误.isEmpty {
-                            // 错误提示
-                            HStack {
-                                Image(systemName: "exclamationmark.triangle")
+                            HStack(alignment: .top, spacing: 8) {
+                                Image(systemName: "info.circle")
                                     .foregroundColor(.orange)
                                 Text(测试视图模型.广告分析错误)
                                     .font(.subheadline)
@@ -50,33 +50,55 @@ struct 广告分析弹窗: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color.orange.opacity(0.1))
                             .cornerRadius(8)
-                        } else if let 结果 = 测试视图模型.广告分析结果 {
+                        }
+
+                        if let 结果 = 测试视图模型.广告分析结果 {
                             // 一键生成广告屏蔽脚本按钮（置顶，方便用户快速操作）
+                            // 无广告字段时禁用，给出明确反馈
                             Button(action: {
                                 生成并写入脚本()
                             }) {
                                 HStack {
-                                    Image(systemName: "wand.and.stars")
+                                    Image(systemName: 结果.广告字段.isEmpty ? "wand.and.stars.slash" : "wand.and.stars")
                                         .foregroundColor(.white)
-                                    Text("一键生成广告屏蔽脚本")
+                                    Text(结果.广告字段.isEmpty ? "无广告字段可生成" : "一键生成广告屏蔽脚本")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                         .foregroundColor(.white)
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12) // 12pt垂直内边距，按钮醒目
-                                .background(Color.orange)
+                                .background(结果.广告字段.isEmpty ? Color.gray : Color.orange)
                                 .cornerRadius(8)
                             }
+                            .disabled(结果.广告字段.isEmpty)
 
                             // 识别到的广告字段列表
-                            Text("共识别到 \(结果.广告字段.count) 个广告相关字段")
-                                .font(.subheadline)
-                                .fontWeight(.medium)
-                                .foregroundColor(.secondary)
+                            if !结果.广告字段.isEmpty {
+                                Text("共识别到 \(结果.广告字段.count) 个广告相关字段")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
 
-                            ForEach(结果.广告字段) { 字段 in
-                                广告字段行(字段: 字段)
+                                ForEach(结果.广告字段) { 字段 in
+                                    广告字段行(字段: 字段)
+                                }
+                            } else {
+                                // 空态提示
+                                VStack(spacing: 8) {
+                                    Image(systemName: "magnifyingglass")
+                                        .font(.largeTitle)
+                                        .foregroundColor(.gray)
+                                    Text("未识别到广告字段")
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                    Text("可尝试：1.点击「获取响应体」获取真实数据 2.在「模拟响应体」中输入JSON 3.检查响应体是否为有效JSON格式")
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                        .multilineTextAlignment(.center)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
                             }
                         }
                     }
