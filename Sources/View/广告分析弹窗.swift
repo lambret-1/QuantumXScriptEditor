@@ -59,7 +59,7 @@ struct 广告分析弹窗: View {
                                 生成并写入脚本()
                             }) {
                                 HStack {
-                                    Image(systemName: 结果.广告字段.isEmpty ? "wand.and.stars.slash" : "wand.and.stars")
+                                    Image(systemName: "wand.and.stars")
                                         .foregroundColor(.white)
                                     Text(结果.广告字段.isEmpty ? "无广告字段可生成" : "一键生成广告屏蔽脚本")
                                         .font(.subheadline)
