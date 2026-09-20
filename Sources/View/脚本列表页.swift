@@ -40,6 +40,8 @@ struct 脚本列表页: View {
     @State private var 文件夹提示: String?
     /// 外部文件导入后自动打开的脚本ID（用于编程式导航）
     @State private var 自动打开脚本ID: UUID?
+    /// 是否显示文档选择器（导入.js文件）
+    @State private var 显示文档选择器 = false
 
     var body: some View {
         NavigationView {
@@ -95,11 +97,19 @@ struct 脚本列表页: View {
                 .navigationBarTitle("圈X脚本编辑器", displayMode: .large)
                 .navigationBarItems(
                     leading:
-                        Button(action: {
-                            手动检测更新()
-                        }) {
-                            Image(systemName: "arrow.up.arrow.down.circle")
-                                .font(.title3) // 标题3字号，更新检测按钮
+                        HStack(spacing: 16) { // 16pt间距，更新检测和导入文件按钮
+                            Button(action: {
+                                手动检测更新()
+                            }) {
+                                Image(systemName: "arrow.up.arrow.down.circle")
+                                    .font(.title3) // 标题3字号，更新检测按钮
+                            }
+                            Button(action: {
+                                显示文档选择器 = true
+                            }) {
+                                Image(systemName: "folder.badge.plus")
+                                    .font(.title3) // 标题3字号，导入文件按钮
+                            }
                         },
                     trailing:
                         Button(action: {
@@ -154,6 +164,12 @@ struct 脚本列表页: View {
         .overlay(删除确认覆盖层)
         // 文件夹提示浮层
         .overlay(文件夹提示覆盖层)
+        // 文档选择器（导入.js文件，绕过系统默认打开方式）
+        .sheet(isPresented: $显示文档选择器) {
+            文档选择器视图(选择完成: { url in
+                处理导入文件(url)
+            })
+        }
     }
 
     // MARK: - 更新检测逻辑
@@ -321,6 +337,62 @@ struct 脚本列表页: View {
         }
         // 调用视图模型创建脚本
         if let 新脚本 = 视图模型.从外部文件创建脚本(文件名: 文件名, 内容: 内容) {
+            // 延迟一帧后自动导航到编辑器，确保列表已刷新
+            DispatchQueue.main.async {
+                自动打开脚本ID = 新脚本.id
+            }
+            // 显示导入成功提示
+            视图模型.错误提示 = "已导入脚本：\(文件名)"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                视图模型.错误提示 = nil
+            }
+        }
+    }
+
+    /// 处理从文档选择器导入的文件
+    /// - Parameter url: 选择的文件URL
+    private func 处理导入文件(_ url: URL) {
+        // 只处理.js/.mjs/.cjs文件
+        let 支持的扩展名 = ["js", "mjs", "cjs"]
+        guard 支持的扩展名.contains(url.pathExtension.lowercased()) else {
+            视图模型.错误提示 = "仅支持 .js / .mjs / .cjs 格式文件"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                视图模型.错误提示 = nil
+            }
+            return
+        }
+
+        // 开始访问安全范围资源
+        let 是否安全范围 = url.startAccessingSecurityScopedResource()
+        defer {
+            if 是否安全范围 {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        // 读取文件内容（支持UTF-8/GBK/ASCII多种编码）
+        let gbk编码 = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue)))
+        var 文件内容 = ""
+        if let 内容 = try? String(contentsOf: url, encoding: .utf8) {
+            文件内容 = 内容
+        } else if let 数据 = try? Data(contentsOf: url),
+                  let 内容 = String(data: 数据, encoding: .utf8) ??
+                            String(data: 数据, encoding: gbk编码) ??
+                            String(data: 数据, encoding: .ascii) {
+            文件内容 = 内容
+        } else {
+            视图模型.错误提示 = "文件读取失败"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                视图模型.错误提示 = nil
+            }
+            return
+        }
+
+        // 提取文件名（不含扩展名）
+        let 文件名 = url.deletingPathExtension().lastPathComponent
+
+        // 调用视图模型创建脚本
+        if let 新脚本 = 视图模型.从外部文件创建脚本(文件名: 文件名, 内容: 文件内容) {
             // 延迟一帧后自动导航到编辑器，确保列表已刷新
             DispatchQueue.main.async {
                 自动打开脚本ID = 新脚本.id
@@ -592,4 +664,45 @@ struct 透明背景: UIViewRepresentable {
         return 视图
     }
     func updateUIView(_ 视图: UIView, context: Context) {}
+}
+
+// MARK: - 文档选择器视图（导入.js文件）
+
+/// 文档选择器视图封装，用于从App内直接选择.js文件导入，绕过系统默认打开方式
+/// 使用UIDocumentPickerViewController，iOS14兼容
+struct 文档选择器视图: UIViewControllerRepresentable {
+    /// 选择文件完成回调，返回选择的文件URL
+    let 选择完成: (URL) -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        // 只允许选择JavaScript源码文件（UTI: com.netscape.javascript-source）
+        let 文档选择器 = UIDocumentPickerViewController(documentTypes: ["com.netscape.javascript-source", "public.javascript-source", "public.source-code", "public.plain-text"], in: .import)
+        文档选择器.delegate = context.coordinator
+        文档选择器.allowsMultipleSelection = false // 只允许选择单个文件
+        return 文档选择器
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> 协调器 {
+        协调器(选择完成: 选择完成)
+    }
+
+    /// 协调器，处理文档选择器回调
+    class 协调器: NSObject, UIDocumentPickerDelegate {
+        let 选择完成: (URL) -> Void
+
+        init(选择完成: @escaping (URL) -> Void) {
+            self.选择完成 = 选择完成
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            选择完成(url)
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            // 用户取消选择，不做处理
+        }
+    }
 }

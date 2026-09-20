@@ -69,6 +69,16 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.4.9
+- 新增App内导入.js文件功能，解决系统默认打开方式跳转到其他App的问题：
+  - 【问题原因】iOS系统会记住用户上次选择的默认打开方式，如果之前选过用其他App（如全能签）打开.js文件，之后每次都会默认用那个App打开，即使我们的App声明了Owner优先级
+  - 【解决方案】在脚本列表页导航栏新增"导入文件"按钮（文件夹+加号图标），点击后弹出系统文档选择器，直接从App内选择.js文件导入，完全绕过系统默认打开方式
+  - 【文档选择器】使用UIDocumentPickerViewController封装，只允许选择JavaScript源码文件（UTI: com.netscape.javascript-source/public.javascript-source/public.source-code/public.plain-text），支持单选
+  - 【文件读取】支持UTF-8/GBK/ASCII多种编码自动尝试读取，安全范围资源访问
+  - 【自动导入】选择文件后自动创建新脚本并导航到编辑器，显示导入成功提示
+  - 【格式校验】仅支持.js/.mjs/.cjs格式文件，其他格式提示错误
+  - 涉及文件：脚本列表页.swift
+
 ### v1.4.8
 - 新增支持通过系统"打开方式"优先使用本App打开.js文件：
   - 【Info.plist配置】添加CFBundleDocumentTypes声明App能够编辑JavaScript文件，LSHandlerRank设置为Owner让App在打开方式列表中优先显示
