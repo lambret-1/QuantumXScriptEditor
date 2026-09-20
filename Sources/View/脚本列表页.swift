@@ -675,8 +675,8 @@ struct 文档选择器视图: UIViewControllerRepresentable {
     let 选择完成: (URL) -> Void
 
     func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        // 只允许选择JavaScript源码文件（UTI: com.netscape.javascript-source）
-        let 文档选择器 = UIDocumentPickerViewController(documentTypes: ["com.netscape.javascript-source", "public.javascript-source", "public.source-code", "public.plain-text"], in: .import)
+        // 只允许选择JavaScript源码文件（UTI: com.quantumx.javascript-source）
+        let 文档选择器 = UIDocumentPickerViewController(documentTypes: ["com.quantumx.javascript-source", "public.source-code", "public.plain-text"], in: .import)
         文档选择器.delegate = context.coordinator
         文档选择器.allowsMultipleSelection = false // 只允许选择单个文件
         return 文档选择器

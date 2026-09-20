@@ -69,6 +69,15 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.5.0
+- 修复App未出现在iOS共享菜单/打开方式列表中的问题：
+  - 【根本原因】之前使用UTImportedTypeDeclarations（导入类型声明）+ com.netscape.javascript-source UTI，导入类型声明只适用于系统已内置但未完全识别的类型，而com.netscape.javascript-source不是iOS系统内置UTI，导致系统无法正确关联.js文件与我们App
+  - 【修复方案1】改用UTExportedTypeDeclarations（导出类型声明），作为Owner主动导出自定义UTI（com.quantumx.javascript-source），系统安装App后会注册这个UTI并关联.js/.mjs/.cjs扩展名
+  - 【修复方案2】CFBundleDocumentTypes的LSItemContentTypes只保留自定义UTI（com.quantumx.javascript-source），与UTExportedTypeDeclarations中的UTTypeIdentifier完全一致
+  - 【修复方案3】文档选择器中的documentTypes同步更新为自定义UTI
+  - 【效果】安装App后，系统会在"打开方式"和"共享"菜单的"拷贝到..."列表中显示我们App，LSHandlerRank=Owner确保优先显示
+  - 涉及文件：Info.plist、脚本列表页.swift
+
 ### v1.4.9
 - 新增App内导入.js文件功能，解决系统默认打开方式跳转到其他App的问题：
   - 【问题原因】iOS系统会记住用户上次选择的默认打开方式，如果之前选过用其他App（如全能签）打开.js文件，之后每次都会默认用那个App打开，即使我们的App声明了Owner优先级
