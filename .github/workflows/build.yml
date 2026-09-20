@@ -35,7 +35,7 @@ jobs:
       - name: 构建未签名IPA
         run: |
           xcodebuild -project "圈X脚本编辑器.xcodeproj" \
-            -scheme "圈X脚本编辑器" \
+            -scheme "QuantumXScriptEditor" \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
@@ -55,7 +55,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
           # Xcode已自动嵌入共享扩展到.app/PlugIns目录（dependencies中设置embed: true），无需手动复制
-          APP_PATH="build/Build/Products/Release-iphoneos/圈X脚本编辑器.app"
+          APP_PATH="build/Build/Products/Release-iphoneos/QuantumXScriptEditor.app"
 
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/

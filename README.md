@@ -69,6 +69,15 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.6.2
+- 彻底修复无法安装问题（全面排查后修复所有根因）：
+  - 【根因1】主App target名是中文"圈X脚本编辑器"，导致XcodeGen的bundleId设置未生效，实际Bundle ID变成com.quantumx.editor.圈X脚本编辑器（包含中文），iOS安装校验直接拒绝。修复：将主App target名改为英文QuantumXScriptEditor
+  - 【根因2】主App可执行文件名是中文，PRODUCT_NAME默认使用target名。修复：在settings.base中显式设置PRODUCT_NAME: QuantumXScriptEditor
+  - 【根因3】主App和共享扩展的PRODUCT_BUNDLE_IDENTIFIER未显式设置，依赖XcodeGen的bundleId字段但未生效。修复：在settings.base中显式设置PRODUCT_BUNDLE_IDENTIFIER
+  - 【根因4】共享扩展NSExtensionPrincipalClass使用$(PRODUCT_MODULE_NAME).ShareViewController变量，Xcode构建时变量替换失败导致整个NSExtension字段丢失。修复：硬编码为ShareExtension.ShareViewController
+  - 【同步修改】CI流水线中scheme名改为QuantumXScriptEditor，构建产物路径改为QuantumXScriptEditor.app
+  - 涉及文件：Project.yml、Sources/共享扩展/Info.plist、.github/workflows/build.yml
+
 ### v1.6.1
 - 继续修复无法安装问题（找到v1.6.0仍无法安装的真正根因）：
   - 【根本原因】v1.6.0虽然设置了PRODUCT_NAME: ShareExtension（英文），使构建产物的.appex目录名变成英文，但Xcode在嵌入扩展到主App的PlugIns目录时，使用target名作为目录名。target名是中文"共享扩展"，导致PlugIns/共享扩展.appex目录名仍是中文，iOS无法识别包含非ASCII字符的扩展目录名

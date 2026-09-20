@@ -7,7 +7,7 @@ options:
   projectFormat: Xcode 14.0
   createIntermediateGroups: true
 targets:
-  圈X脚本编辑器:
+  QuantumXScriptEditor:
     type: application
     platform: iOS
     bundleId: com.quantumx.editor
@@ -16,11 +16,15 @@ targets:
         excludes:
           - 共享扩展
       - Assets
+    settings:
+      base:
+        PRODUCT_NAME: QuantumXScriptEditor
+        PRODUCT_BUNDLE_IDENTIFIER: com.quantumx.editor
     info:
       path: Info.plist
       properties:
         CFBundleDisplayName: 圈X脚本编辑器
-        CFBundleShortVersionString: "1.6.1"
+        CFBundleShortVersionString: "1.6.2"
         CFBundleVersion: "1"
         UILaunchScreen: {}
         UIFileSharingEnabled: true
@@ -41,10 +45,11 @@ targets:
     settings:
       base:
         PRODUCT_NAME: ShareExtension
+        PRODUCT_BUNDLE_IDENTIFIER: com.quantumx.editor.ShareExtension
         SKIP_INSTALL: YES
     info:
       path: Sources/共享扩展/Info.plist
       properties:
         CFBundleDisplayName: 导入到圈X脚本编辑器
-        CFBundleShortVersionString: "1.6.1"
+        CFBundleShortVersionString: "1.6.2"
         CFBundleVersion: "1"
