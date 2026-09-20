@@ -69,6 +69,17 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.4.8
+- 新增支持通过系统"打开方式"优先使用本App打开.js文件：
+  - 【Info.plist配置】添加CFBundleDocumentTypes声明App能够编辑JavaScript文件，LSHandlerRank设置为Owner让App在打开方式列表中优先显示
+  - 【支持格式】支持.js/.mjs/.cjs三种扩展名，同时声明com.netscape.javascript-source、public.javascript-source、public.source-code三个UTI
+  - 【UTI导入声明】添加UTImportedTypeDeclarations确保系统正确识别.js文件扩展名和MIME类型
+  - 【文件读取】App入口添加.onOpenURL处理，支持安全范围资源访问，自动尝试UTF-8/GBK/ASCII多种编码读取文件内容
+  - 【自动导入】读取文件后通过NotificationCenter发送通知，脚本列表页监听通知后自动创建新脚本并导航到编辑器
+  - 【编程式导航】NavigationLink改为tag+selection绑定，外部文件导入后自动打开编辑器
+  - 【视图模型扩展】新增从外部文件创建脚本方法，支持带内容创建
+  - 涉及文件：Info.plist、圈X脚本编辑器App.swift、脚本列表页.swift、脚本列表视图模型.swift
+
 ### v1.4.7
 - 彻底修复测试输出区域无限放大导致测试面板超出屏幕的bug：
   - 【根本原因】v1.4.6仅通过UITextView自身高度约束限制高度，但SwiftUI中UIViewRepresentable的布局由intrinsicContentSize决定，UITextView的intrinsicContentSize不受自身高度约束限制，导致内容过多时intrinsicContentSize无限大，SwiftUI布局被撑大

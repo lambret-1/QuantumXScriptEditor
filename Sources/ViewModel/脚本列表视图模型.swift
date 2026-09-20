@@ -38,6 +38,29 @@ final class 脚本列表视图模型: ObservableObject {
         }
     }
 
+    /// 从外部文件创建脚本（用于通过"打开方式"导入.js文件）
+    /// - Parameters:
+    ///   - 文件名: 文件名（不含扩展名）
+    ///   - 内容: 文件内容
+    /// - Returns: 创建的脚本模型，创建失败返回nil
+    @discardableResult
+    func 从外部文件创建脚本(文件名: String, 内容: String) -> 脚本模型? {
+        let 清理后名称 = 文件名.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !清理后名称.isEmpty else {
+            错误提示 = "文件名不能为空"
+            return nil
+        }
+        let 新脚本 = 脚本模型(名称: 清理后名称, 内容: 内容)
+        do {
+            try 存储.保存脚本(新脚本)
+            错误提示 = nil
+            return 新脚本
+        } catch {
+            错误提示 = error.localizedDescription
+            return nil
+        }
+    }
+
     /// 删除指定脚本
     /// - Parameter 脚本: 待删除的脚本
     func 删除脚本(_ 脚本: 脚本模型) {

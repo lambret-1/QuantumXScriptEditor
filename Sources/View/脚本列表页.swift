@@ -38,6 +38,8 @@ struct 脚本列表页: View {
     @State private var 显示删除确认 = false
     /// 文件夹提示文本（打开文件夹后显示）
     @State private var 文件夹提示: String?
+    /// 外部文件导入后自动打开的脚本ID（用于编程式导航）
+    @State private var 自动打开脚本ID: UUID?
 
     var body: some View {
         NavigationView {
@@ -48,7 +50,7 @@ struct 脚本列表页: View {
                         空态视图()
                     } else {
                         ForEach(视图模型.存储.脚本列表) { 脚本 in
-                            NavigationLink(destination: 脚本编辑器页(脚本: 脚本, 存储: 视图模型.存储)) {
+                            NavigationLink(destination: 脚本编辑器页(脚本: 脚本, 存储: 视图模型.存储), tag: 脚本.id, selection: $自动打开脚本ID) {
                                 脚本行视图(脚本: 脚本)
                             }
                             .contextMenu {
@@ -113,6 +115,10 @@ struct 脚本列表页: View {
                 // 【新增】APP从后台进入前台时立即检查更新
                 .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                     前台进入检测更新()
+                }
+                // 【新增】监听外部.js文件打开通知（通过"打开方式"导入文件）
+                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("打开外部JS文件通知"))) { 通知 in
+                    处理外部文件导入(通知)
                 }
 
                 // 错误提示浮层
@@ -301,6 +307,28 @@ struct 脚本列表页: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                     文件夹提示 = nil
                 }
+            }
+        }
+    }
+
+    /// 处理外部.js文件导入（通过"打开方式"从其他App导入文件）
+    /// - Parameter 通知: 包含文件名和内容的通知
+    private func 处理外部文件导入(_ 通知: Notification) {
+        guard let 用户信息 = 通知.userInfo,
+              let 文件名 = 用户信息["文件名"] as? String,
+              let 内容 = 用户信息["内容"] as? String else {
+            return
+        }
+        // 调用视图模型创建脚本
+        if let 新脚本 = 视图模型.从外部文件创建脚本(文件名: 文件名, 内容: 内容) {
+            // 延迟一帧后自动导航到编辑器，确保列表已刷新
+            DispatchQueue.main.async {
+                自动打开脚本ID = 新脚本.id
+            }
+            // 显示导入成功提示
+            视图模型.错误提示 = "已导入脚本：\(文件名)"
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                视图模型.错误提示 = nil
             }
         }
     }
