@@ -69,6 +69,13 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.6.1
+- 继续修复无法安装问题（找到v1.6.0仍无法安装的真正根因）：
+  - 【根本原因】v1.6.0虽然设置了PRODUCT_NAME: ShareExtension（英文），使构建产物的.appex目录名变成英文，但Xcode在嵌入扩展到主App的PlugIns目录时，使用target名作为目录名。target名是中文"共享扩展"，导致PlugIns/共享扩展.appex目录名仍是中文，iOS无法识别包含非ASCII字符的扩展目录名
+  - 【修复】将XcodeGen中的target名从中文"共享扩展"改为英文"ShareExtension"，主App的dependencies中的target引用同步修改。这样嵌入到PlugIns目录中的扩展目录名就会变成英文ShareExtension.appex
+  - 【同步修改】共享扩展的bundleId从com.quantumx.editor.share改为com.quantumx.editor.ShareExtension，与PRODUCT_NAME和target名保持一致
+  - 涉及文件：Project.yml
+
 ### v1.6.0
 - 修复v1.5.3~v1.5.9版本无法安装的严重问题（找到真正根因）：
   - 【根本原因】共享扩展的PRODUCT_NAME默认使用target名"共享扩展"（中文），导致扩展的可执行文件名是中文，iOS系统无法识别包含非ASCII字符的扩展可执行文件，导致整个IPA无法安装
