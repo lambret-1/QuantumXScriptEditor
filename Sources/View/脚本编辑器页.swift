@@ -33,7 +33,10 @@ struct 脚本编辑器页: View {
 
                 // 静态检查结果
                 if let 结果 = 视图模型.检查结果 {
-                    静态检查结果视图(结果: 结果)
+                    静态检查结果视图(结果: 结果) {
+                        // 关闭回调：清除检查结果，回到编辑状态
+                        视图模型.清除检查结果()
+                    }
                 }
 
                 // 代码编辑器（固定高度，避免ScrollView嵌套滚动问题）
@@ -338,6 +341,8 @@ struct 提示条视图: View {
 /// 静态检查结果展示
 struct 静态检查结果视图: View {
     let 结果: 脚本静态检查服务.检查结果
+    /// 关闭回调（点击关闭按钮时调用）
+    var 关闭回调: (() -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -348,6 +353,17 @@ struct 静态检查结果视图: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                 Spacer()
+                // 关闭按钮：点击后清除检查结果，回到编辑状态
+                if let 回调 = 关闭回调 {
+                    Button(action: {
+                        回调()
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                            .font(.system(size: 16)) // 16pt关闭按钮尺寸，便于点击
+                    }
+                    .buttonStyle(BorderlessButtonStyle()) // 无边框样式，避免占用过多空间
+                }
             }
             if 结果.问题列表.isEmpty {
                 Text("✅ 未发现问题（仅文本规则检查，不保证运行时正常）")
