@@ -15,6 +15,8 @@ struct 代码补全项: Identifiable, Equatable {
 
     /// 补全分类枚举
     enum 补全分类: String, CaseIterable {
+        /// 常用代码片段（首字母联想优先显示）
+        case 常用片段 = "常用片段"
         /// 圈X全局对象
         case 全局对象 = "全局对象"
         /// 请求相关

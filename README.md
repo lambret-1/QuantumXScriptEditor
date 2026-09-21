@@ -69,6 +69,27 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.8.2
+- 优化键盘联想功能，支持首字母快速联想常用代码片段：
+  - 【新增分类】新增"常用片段"分类，包含100+常用代码片段补全项，输入单个字母即可快速插入
+  - 【输入c联想】const、console.log("调试信息");、console.log("变量值: " + 变量);
+  - 【输入r联想】$response、$response.body、$response.headers、$response.statusCode
+  - 【输入d联想】$done();、$done(); return;、$done({ body: JSON.stringify(body) });、$done({});、$done({ body: 原始响应体 });
+  - 【输入l联想】let、let body = JSON.parse($response.body);
+  - 【输入v联想】var、var body = $response.body;
+  - 【输入f联想】function、完整函数模板、IIFE立即执行函数
+  - 【输入i联想】if、检查$response是否存在、检查响应体是否为空
+  - 【输入t联想】try、完整try-catch模板（异常时原样返回）
+  - 【输入j联想】JSON.parse、JSON.stringify
+  - 【输入n联想】$notify、完整通知模板
+  - 【输入p联想】$prefs.setValueForKey、$prefs.valueForKey
+  - 【输入$联想】$request、$response、$done、$notify、$prefs、$task.fetch
+  - 【输入q联想】圈X脚本完整骨架（IIFE包裹）
+  - 【其他字母】a(Array)、e(else)、g(globalData)、m(Math)、o(Object)、s(stringify/原样返回)、w(while)
+  - 【缩写支持】支持双字母缩写快速插入，如cl(console.log)、rb(response.body)、rh(response.headers)、dr(done+return)、db(done body)、lb(let body)、ie(if response存在)、tc(try-catch)、jp(JSON.parse)、js(JSON.stringify)、nt(notify)、pw(prefs write)、pr(prefs read)、qx(圈X脚本骨架)
+  - 【优化排序】过滤候选项时按优先级排序：常用片段分类优先 → 触发词以前缀开头的优先 → 触发词短的优先 → 字母顺序，确保输入单个字母时最常用的代码片段排在最前面
+  - 修改文件：Sources/Model/代码补全项.swift、Sources/Service/代码补全服务.swift
+
 ### v1.8.1
 - 【关键修复】广告分析增加值判断，确认是广告词才清空，解决误判正常字段导致网页打不开的问题：
   - 【修复1】新增广告URL判断函数`是广告URL`：必须同时满足三个条件才认为是广告URL——①值是字符串类型 ②是URL格式(http/https//开头) ③URL中包含广告相关关键词(广告平台域名/广告路径/广告参数)
