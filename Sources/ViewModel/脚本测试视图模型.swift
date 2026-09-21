@@ -440,8 +440,23 @@ final class 脚本测试视图模型: ObservableObject {
 
     /// 生成JSON格式广告屏蔽脚本（修改字段值）
     private func 生成JSON广告脚本(结果: 智能分析服务.分析结果) -> String {
-        let 广告字段列表 = 结果.广告字段
+        let 原始广告字段列表 = 结果.广告字段
+
+        // 【优化】父子路径去重：如果字段A是字段B的父路径，则只保留A，清空A即等于清空B及其所有子字段
+        // 例如：data.globalData 和 data.globalData.pupu，只保留 data.globalData
+        let 按深度排序 = 原始广告字段列表.sorted { $0.字段路径.components(separatedBy: ".").count < $1.字段路径.components(separatedBy: ".").count }
+        var 去重后字段列表: [智能分析服务.识别字段] = []
+        for 字段 in 按深度排序 {
+            let 是子路径 = 去重后字段列表.contains { 已保留 in
+                字段.字段路径.hasPrefix(已保留.字段路径 + ".")
+            }
+            if !是子路径 {
+                去重后字段列表.append(字段)
+            }
+        }
+        let 广告字段列表 = 去重后字段列表
         let 字段数 = 广告字段列表.count
+        let 原始字段数 = 原始广告字段列表.count
 
         // 收集所有需要的父路径（去重），生成统一的对象存在性检查代码
         var 父路径集合 = Set<String>()
@@ -499,11 +514,12 @@ final class 脚本测试视图模型: ObservableObject {
         }
 
         return """
-// 广告屏蔽脚本（JSON格式，共\(字段数)个字段）
+// 广告屏蔽脚本（JSON格式，共识别\(原始字段数)个字段，父子路径去重后\(字段数)个）
 // 遵循圈X标准流程：IIFE→响应检查→非JSON放行→try-catch→修改→$done返回
+// 优化：父路径字段(如data.globalData)存在时，只清空父路径，不再逐个清空子字段
 
 (function() {
-    console.log("🚀 [1] 广告屏蔽脚本触发，共识别到\(字段数)个广告字段");
+    console.log("🚀 [1] 广告屏蔽脚本触发，共识别到\(原始字段数)个广告字段，父子路径去重后\(字段数)个");
     if (typeof $response === 'undefined' || $response === null) { console.log("❌ $response未定义"); $done({}); return; }
     var 原始响应体 = $response.body;
     if (!原始响应体) { console.log("❌ 响应体为空"); $done({}); return; }
@@ -520,10 +536,10 @@ final class 脚本测试视图模型: ObservableObject {
         console.log("✅ [4] JSON解析成功");
         // 确保父路径对象存在
 \(检查代码)
-        console.log("🧹 [5] 开始屏蔽广告字段...");
+        console.log("🧹 [5] 开始屏蔽广告字段（父路径存在时只清空父路径）...");
         // 屏蔽广告字段
 \(修改代码)
-        console.log("🎉 [6] 广告屏蔽完成，共清空\(字段数)个广告字段");
+        console.log("🎉 [6] 广告屏蔽完成，共清空\(字段数)个广告字段（原始识别\(原始字段数)个，父子路径合并\(原始字段数 - 字段数)个）");
         $done({ body: JSON.stringify(body) });
     } catch (e) {
         console.log("❌ 解析失败：" + e + "，原样放行");
