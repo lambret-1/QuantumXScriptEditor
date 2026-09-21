@@ -1090,6 +1090,59 @@ enum 智能分析服务 {
         return nil
     }
 
+    /// 广告URL中常见的关键词（域名/路径/参数），用于判断一个URL是否真的是广告链接
+    private static let 广告URL关键词 = [
+        // 广告平台域名
+        "doubleclick", "googleads", "admob", "unityads", "vungle", "chartboost",
+        "applovin", "ironsource", "mintegral", "pangle", "bytedance", "tiktok",
+        "facebook", "fbcdn", "instagram", "twitter", "snap", "pinterest", "reddit",
+        "tumblr", "yahoo", "bing", "baidu", "tencent", "alibaba", "jd", "meituan",
+        "didi", "kuaishou", "bilibili", "youku", "iqiyi", "tudou", "mgtv", "qq",
+        "weixin", "wechat", "adnxs", "adform", "adcolony", "tapjoy", "fyber",
+        "supersonic", "mopub", "millennial", "inmobi", "flurry", "localytics",
+        "amplitude", "mixpanel", "adjust", "appsflyer", "kochava", "tune",
+        "branch", "onfido", "sentry", "bugly", "umeng", "talkingsata",
+        // 广告相关路径
+        "/ad/", "/ads/", "/advert/", "/advertisement/", "/banner/", "/splash/",
+        "/popup/", "/float/", "/native/", "/reward/", "/interstitial/", "/promotion/",
+        "/promo/", "/sponsor/", "/sponsored/", "/creative/", "/campaign/", "/placement/",
+        "/slot/", "/zone/", "/area/", "/space/", "/location/", "/spot/", "/unit/",
+        "/tag/", "/category/", "/tracking/", "/track/", "/monitor/", "/stat/",
+        "/report/", "/log/", "/event/", "/analytics/", "/pixel/", "/beacon/",
+        "/impression/", "/expose/", "/click/", "/conversion/", "/download/",
+        "/install/", "/open/", "/activate/", "/session/", "/revenue/", "/spend/",
+        // 广告相关参数（?后面的参数名）
+        "ad_id=", "adid=", "ad_type=", "adtype=", "creative_id=", "creativeid=",
+        "campaign_id=", "campaignid=", "placement_id=", "placementid=", "slot_id=", "slotid=",
+        "zone_id=", "zoneid=", "area_id=", "areaid=", "space_id=", "spaceid=",
+        "location_id=", "locationid=", "spot_id=", "spotid=", "unit_id=", "unitid=",
+        "tag_id=", "tagid=", "category_id=", "categoryid=", "advertiser_id=", "advertiserid=",
+        "brand_id=", "brandid=", "sponsor_id=", "sponsorid=", "agency_id=", "agencyid=",
+        "partner_id=", "partnerid=", "vendor_id=", "vendorid=", "provider_id=", "providerid=",
+        "network_id=", "networkid=", "platform_id=", "platformid=", "affiliate_id=", "affiliateid=",
+        "pub_id=", "pubid=", "publisher_id=", "publisherid=", "sub_id=", "subid=",
+        "source=", "utm_source=", "utm_medium=", "utm_campaign=", "utm_content=", "utm_term=",
+        "gclid=", "fbclid=", "msclkid=", "yclid=", "dclid=", "li_fat_id=", "ttclid=",
+        "twclid=", "s_cid=", "igshid=", "pinid=", "rdt_cid=", "scid=", "mc_cid=",
+        "mc_eid=", "ml_subscriber=", "ml_subscriber_hash=", "vero_id=", "sailthru_id=",
+        "klaviyo_id=", "omni_id=", "cmp_id=", "bm_uniq_id=", "ref=", "referrer=",
+        "from=", "channel=", "media=", "campaign=", "content=", "term="
+    ]
+
+    /// 判断一个值是否是广告URL（必须是字符串、是URL格式、且URL中包含广告相关关键词）
+    /// 用于避免误判正常字段（如普通的图片链接、用户头像等）
+    private static func 是广告URL(值: Any) -> Bool {
+        // 必须是字符串类型
+        guard let 字符串值 = 值 as? String else { return false }
+        let 小写值 = 字符串值.lowercased()
+        // 必须是URL格式（以http://、https://或//开头）
+        guard 小写值.hasPrefix("http://") || 小写值.hasPrefix("https://") || 小写值.hasPrefix("//") else {
+            return false
+        }
+        // URL中必须包含广告相关关键词
+        return 广告URL关键词.contains { 小写值.contains($0) }
+    }
+
     /// 递归遍历JSON对象，识别会员和广告字段
     private static func 遍历JSON对象(对象: Any, 路径前缀: String, 结果: inout 分析结果) {
         if let 字典 = 对象 as? [String: Any] {
@@ -1099,14 +1152,34 @@ enum 智能分析服务 {
 
                 // 检查是否为数组（可能是广告列表）
                 if let 数组 = 值 as? [Any], !数组.isEmpty {
-                    // 检查数组名是否含广告关键词
-                    if 广告标记关键词.contains(where: { 小写键.contains($0.lowercased()) }) ||
-                       广告资源关键词.contains(where: { 小写键.contains($0.lowercased()) }) {
+                    // 检查数组名是否含广告标记关键词（广告开关/配置列表，可直接识别）
+                    if 广告标记关键词.contains(where: { 小写键.contains($0.lowercased()) }) {
                         结果.广告字段.append(识别字段(
                             字段路径: 当前路径,
                             当前值: "[数组(\(数组.count)项)]",
                             类型: .广告数组
                         ))
+                    }
+                    // 检查数组名是否含广告资源关键词（必须判断数组内容是否真的是广告相关，避免误判）
+                    else if 广告资源关键词.contains(where: { 小写键.contains($0.lowercased()) }) {
+                        // 判断数组第一项是否是广告URL，或是否包含广告相关字段
+                        var 是广告数组 = false
+                        if let 第一项 = 数组.first as? String {
+                            是广告数组 = 是广告URL(值: 第一项)
+                        } else if let 第一项 = 数组.first as? [String: Any] {
+                            是广告数组 = 第一项.keys.contains { 键名 in
+                                let 小写 = 键名.lowercased()
+                                return 广告标记关键词.contains(where: { 小写.contains($0.lowercased()) }) ||
+                                       广告资源关键词.contains(where: { 小写.contains($0.lowercased()) })
+                            }
+                        }
+                        if 是广告数组 {
+                            结果.广告字段.append(识别字段(
+                                字段路径: 当前路径,
+                                当前值: "[数组(\(数组.count)项)]",
+                                类型: .广告数组
+                            ))
+                        }
                     }
                     // 检查数组第一项是否含广告/会员字段
                     else if let 第一项 = 数组.first as? [String: Any] {
@@ -1161,22 +1234,44 @@ enum 智能分析服务 {
                         类型: .广告标记
                     ))
                 }
-                // 检查广告资源字段
+                // 检查广告资源字段（必须确认是广告URL才识别，避免误判正常字段导致网页打不开）
                 else if 广告资源关键词.contains(where: { 小写键 == $0.lowercased() || 小写键.hasSuffix($0.lowercased()) }) {
-                    let 类型: 识别字段.字段类型 = (小写键.contains("url") || 小写键.contains("link")) ? .广告链接 : .广告图片
-                    结果.广告字段.append(识别字段(
-                        字段路径: 当前路径,
-                        当前值: String(describing: 值),
-                        类型: 类型
-                    ))
+                    // 【关键修复】只有当字段值真的是广告URL时才识别为广告字段
+                    // 避免把普通的图片链接、用户头像、正常页面链接等误判为广告链接而清空
+                    if 是广告URL(值: 值) {
+                        let 类型: 识别字段.字段类型 = (小写键.contains("url") || 小写键.contains("link")) ? .广告链接 : .广告图片
+                        结果.广告字段.append(识别字段(
+                            字段路径: 当前路径,
+                            当前值: String(describing: 值),
+                            类型: 类型
+                        ))
+                    }
                 }
-                // 检查广告数组字段
+                // 检查广告数组字段（必须是数组且内容是广告相关才识别，避免误判）
                 else if 广告数组关键词.contains(where: { 小写键 == $0.lowercased() || 小写键.hasSuffix($0.lowercased()) }) {
-                    结果.广告字段.append(识别字段(
-                        字段路径: 当前路径,
-                        当前值: String(describing: 值),
-                        类型: .广告数组
-                    ))
+                    if let 数组 = 值 as? [Any], !数组.isEmpty {
+                        // 判断数组内容是否真的是广告相关
+                        var 是广告数组 = false
+                        if let 第一项 = 数组.first as? String {
+                            是广告数组 = 是广告URL(值: 第一项)
+                        } else if let 第一项 = 数组.first as? [String: Any] {
+                            是广告数组 = 第一项.keys.contains { 键名 in
+                                let 小写 = 键名.lowercased()
+                                return 广告标记关键词.contains(where: { 小写.contains($0.lowercased()) }) ||
+                                       广告资源关键词.contains(where: { 小写.contains($0.lowercased()) })
+                            }
+                        } else {
+                            // 数组第一项不是字符串也不是字典，可能是基本类型数组，根据字段名判断
+                            是广告数组 = true
+                        }
+                        if 是广告数组 {
+                            结果.广告字段.append(识别字段(
+                                字段路径: 当前路径,
+                                当前值: String(describing: 值),
+                                类型: .广告数组
+                            ))
+                        }
+                    }
                 }
                 // 检查用户核心信息字段（短关键词仅精确匹配，避免误判）
                 else if 匹配用户核心字段(小写键: 小写键) {

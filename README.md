@@ -69,6 +69,15 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.8.1
+- 【关键修复】广告分析增加值判断，确认是广告词才清空，解决误判正常字段导致网页打不开的问题：
+  - 【修复1】新增广告URL判断函数`是广告URL`：必须同时满足三个条件才认为是广告URL——①值是字符串类型 ②是URL格式(http/https//开头) ③URL中包含广告相关关键词(广告平台域名/广告路径/广告参数)
+  - 【修复2】新增广告URL关键词库：包含100+广告平台域名(doubleclick/googleads/admob/unityads等)、50+广告相关路径(/ad//banner//splash//tracking/等)、80+广告相关参数(ad_id/creative_id/campaign_id/utm_source/gclid等)
+  - 【修复3】广告资源字段识别增加值判断：字段名匹配广告资源关键词后，必须确认字段值是广告URL才识别为广告字段，避免把普通图片链接、用户头像、正常页面链接等误判为广告链接而清空
+  - 【修复4】数组类型广告资源字段识别增加内容判断：广告标记关键词匹配的数组可直接识别；广告资源关键词匹配的数组必须判断数组第一项是否是广告URL或包含广告相关字段才识别
+  - 【修复5】广告数组字段识别增加内容判断：必须是数组类型且数组内容是广告相关(第一项是广告URL或包含广告字段)才识别，避免误判正常列表
+  - 修改文件：Sources/Service/智能分析服务.swift
+
 ### v1.8.0
 - 补充更多广告跳转链接关键词：
   - 【通用广告跳转】新增adGoto/adOpen/adMore/adDetail/adInfo/adAbout等跳转链接，adClickThrough/adClickTarget/adClickAction/adClickDestination/adClickFinal/adClickLanding/adClickPage/adClickWeb/adClickSite/adClickH5/adClickScheme/adClickIntent/adClickDeeplink/adClickDeepLink/adClickAppLink/adClickUniversalLink/adClickMiniProgram/adClickMiniApp等点击跳转链接
