@@ -417,7 +417,7 @@ struct 脚本测试面板: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
         }
-        .background(Color(.systemBackground))
+        // 移除独立背景色，测试面板融入页面，跟随全局ScrollView滑动，不再有画中画感
         // 复制成功提示浮层
         .overlay(复制成功浮层)
         // 广告分析弹窗覆盖层

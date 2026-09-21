@@ -31,8 +31,8 @@ final class 脚本测试视图模型: ObservableObject {
     @Published var 模拟响应体文本 = ""
     /// 是否展开模拟响应体编辑区（默认折叠，用户手动展开）
     @Published var 展开模拟响应体 = false
-    /// 输出区域是否自动滚动到底部（默认开启）
-    @Published var 自动滚动 = true
+    /// 输出区域是否自动滚动到底部（默认关闭，测试结束后不自动滚到底）
+    @Published var 自动滚动 = false
     /// 输出区域是否自动换行（默认开启）
     @Published var 自动换行 = true
     /// 新建环境名称输入
