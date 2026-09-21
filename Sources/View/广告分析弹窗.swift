@@ -53,28 +53,41 @@ struct 广告分析弹窗: View {
                         }
 
                         if let 结果 = 测试视图模型.广告分析结果 {
-                            // 一键生成广告屏蔽脚本按钮（置顶，方便用户快速操作）
-                            // 无广告字段时禁用，给出明确反馈
+                            // 响应体类型标签
+                            HStack(spacing: 6) {
+                                Image(systemName: 结果.是否JSON ? "curlybraces" : "text.alignleft")
+                                    .font(.caption)
+                                    .foregroundColor(结果.是否JSON ? .blue : .purple)
+                                Text(结果.是否JSON ? "JSON格式（修改字段值）" : "文本/HTML格式（正则替换）")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+
+                            // 判断是否有可生成的内容
+                            let 有可生成内容 = 结果.是否JSON ? !结果.广告字段.isEmpty : !结果.文本广告关键词.isEmpty
+
+                            // 一键生成广告屏蔽脚本按钮（置顶）
                             Button(action: {
                                 生成并写入脚本()
                             }) {
                                 HStack {
                                     Image(systemName: "wand.and.stars")
                                         .foregroundColor(.white)
-                                    Text(结果.广告字段.isEmpty ? "无广告字段可生成" : "一键生成广告屏蔽脚本")
+                                    Text(有可生成内容 ? "一键生成广告屏蔽脚本" : "无广告内容可生成")
                                         .font(.subheadline)
                                         .fontWeight(.medium)
                                         .foregroundColor(.white)
                                 }
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 12) // 12pt垂直内边距，按钮醒目
-                                .background(结果.广告字段.isEmpty ? Color.gray : Color.orange)
+                                .padding(.vertical, 12)
+                                .background(有可生成内容 ? Color.orange : Color.gray)
                                 .cornerRadius(8)
                             }
-                            .disabled(结果.广告字段.isEmpty)
+                            .disabled(!有可生成内容)
 
-                            // 识别到的广告字段列表
-                            if !结果.广告字段.isEmpty {
+                            // JSON格式：显示广告字段列表
+                            if 结果.是否JSON && !结果.广告字段.isEmpty {
                                 Text("共识别到 \(结果.广告字段.count) 个广告相关字段")
                                     .font(.subheadline)
                                     .fontWeight(.medium)
@@ -83,16 +96,39 @@ struct 广告分析弹窗: View {
                                 ForEach(结果.广告字段) { 字段 in
                                     广告字段行(字段: 字段)
                                 }
-                            } else {
-                                // 空态提示
+                            }
+                            // 非JSON格式：显示文本广告关键词
+                            else if !结果.是否JSON && !结果.文本广告关键词.isEmpty {
+                                Text("共识别到 \(结果.文本广告关键词.count) 个广告关键词（将用于正则替换）")
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(.secondary)
+
+                                // 关键词标签云
+                                换行布局(项目: 结果.文本广告关键词) { 关键词 in
+                                    Text(关键词)
+                                        .font(.caption)
+                                        .foregroundColor(.purple)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.purple.opacity(0.1))
+                                        .cornerRadius(4)
+                                }
+
+                                Text("提示：自动生成基础替换模板，复杂广告格式请根据实际响应体调整正则")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            // 空态提示
+                            else {
                                 VStack(spacing: 8) {
                                     Image(systemName: "magnifyingglass")
                                         .font(.largeTitle)
                                         .foregroundColor(.gray)
-                                    Text("未识别到广告字段")
+                                    Text("未识别到广告内容")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
-                                    Text("可尝试：1.点击「获取响应体」获取真实数据 2.在「模拟响应体」中输入JSON 3.检查响应体是否为有效JSON格式")
+                                    Text("可尝试：1.点击「获取响应体」获取真实数据 2.在「模拟响应体」中输入数据 3.检查响应体格式")
                                         .font(.caption)
                                         .foregroundColor(.secondary)
                                         .multilineTextAlignment(.center)
@@ -186,6 +222,22 @@ private struct 广告字段行: View {
         case .广告图片: return "广告图片"
         case .广告数组: return "广告数组"
         default: return "广告相关"
+        }
+    }
+}
+
+/// 简单的换行布局视图（用于展示关键词标签云）
+struct 换行布局<数据: RandomAccessCollection, 内容: View>: View where 数据.Element: Hashable {
+    let 项目: 数据
+    let 内容: (数据.Element) -> 内容
+
+    var body: some View {
+        // 使用LazyVGrid实现自适应换行布局
+        let 列 = [GridItem(.adaptive(minimum: 80), spacing: 6)]
+        LazyVGrid(columns: 列, alignment: .leading, spacing: 6) {
+            ForEach(Array(项目), id: \.self) { 项 in
+                内容(项)
+            }
         }
     }
 }

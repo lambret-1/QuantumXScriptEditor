@@ -422,23 +422,32 @@ final class 脚本测试视图模型: ObservableObject {
         显示广告分析弹窗 = true
     }
 
-    /// 生成广告屏蔽脚本（将所有识别到的广告字段设为空值）
-    /// 优化版：父路径检查去重、精简日志，生成代码更简洁高效
+    /// 生成广告屏蔽脚本
+    /// 自动识别响应体类型：JSON格式修改字段值，非JSON格式用关键词检测+正则替换
     /// - Returns: 生成的完整圈X脚本代码
     func 生成广告屏蔽脚本() -> String {
-        guard let 结果 = 广告分析结果, !结果.广告字段.isEmpty else {
-            return ""
+        guard let 结果 = 广告分析结果 else { return "" }
+
+        // 非JSON格式：生成基于关键词检测+正则替换的文本屏蔽脚本
+        if !结果.是否JSON {
+            return 生成文本替换广告脚本(结果: 结果)
         }
 
+        // JSON格式：修改JSON字段值
+        guard !结果.广告字段.isEmpty else { return "" }
+        return 生成JSON广告脚本(结果: 结果)
+    }
+
+    /// 生成JSON格式广告屏蔽脚本（修改字段值）
+    private func 生成JSON广告脚本(结果: 智能分析服务.分析结果) -> String {
         let 广告字段列表 = 结果.广告字段
         let 字段数 = 广告字段列表.count
 
-        // 第一步：收集所有需要的父路径（去重），生成统一的对象存在性检查代码
+        // 收集所有需要的父路径（去重），生成统一的对象存在性检查代码
         var 父路径集合 = Set<String>()
         for 字段 in 广告字段列表 {
             let 路径部分 = 字段.字段路径.components(separatedBy: ".")
             guard 路径部分.count >= 2 else { continue }
-            // 收集所有中间父路径（如 body.data, body.data.user）
             var 访问路径 = "body"
             for i in 0..<(路径部分.count - 1) {
                 访问路径 += ".\(路径部分[i])"
@@ -448,37 +457,29 @@ final class 脚本测试视图模型: ObservableObject {
 
         // 生成统一的父路径检查代码（去重后，每个路径只检查一次）
         var 检查代码 = ""
-        // 按路径长度排序，确保先检查外层再检查内层
         let 排序父路径 = 父路径集合.sorted { $0.components(separatedBy: ".").count < $1.components(separatedBy: ".").count }
         for 路径 in 排序父路径 {
             检查代码 += "        if (!\(路径) || typeof \(路径) !== \"object\" || Array.isArray(\(路径))) \(路径) = {};\n"
         }
 
-        // 第二步：生成字段修改代码（不再每个字段重复检查父路径）
+        // 生成字段修改代码
         var 修改代码 = ""
         for 字段 in 广告字段列表 {
             let 路径部分 = 字段.字段路径.components(separatedBy: ".")
             guard 路径部分.count >= 2 else { continue }
             let 字段名 = 路径部分.last!
-            // 父路径（不含最后一个字段名）
             let 父路径 = "body." + 路径部分.dropLast().joined(separator: ".")
 
-            // 根据字段类型设置空值
             var 空值 = "{}"
-            if 字段.类型 == .广告标记 {
-                空值 = "0"
-            } else if 字段.类型 == .广告链接 || 字段.类型 == .广告图片 {
-                空值 = "\"\""
-            } else if 字段.类型 == .广告数组 {
-                空值 = "[]"
-            }
+            if 字段.类型 == .广告标记 { 空值 = "0" }
+            else if 字段.类型 == .广告链接 || 字段.类型 == .广告图片 { 空值 = "\"\"" }
+            else if 字段.类型 == .广告数组 { 空值 = "[]" }
 
             修改代码 += "        \(父路径).\(字段名) = \(空值);\n"
         }
 
-        // 生成完整脚本（精简版：减少冗余日志和注释）
-        let 脚本 = """
-// 广告屏蔽脚本（一键生成，共\(字段数)个字段）
+        return """
+// 广告屏蔽脚本（JSON格式，共\(字段数)个字段）
 // 遵循圈X标准流程：IIFE→响应检查→非JSON放行→try-catch→修改→$done返回
 
 (function() {
@@ -504,6 +505,72 @@ final class 脚本测试视图模型: ObservableObject {
     }
 })();
 """
-        return 脚本
+    }
+
+    /// 生成非JSON格式广告屏蔽脚本（关键词检测+正则替换，适用于HTML/JS文本响应）
+    private func 生成文本替换广告脚本(结果: 智能分析服务.分析结果) -> String {
+        let 关键词列表 = 结果.文本广告关键词
+        guard !关键词列表.isEmpty else {
+            return """
+// 广告屏蔽脚本（文本替换模板）
+// 未识别到广告关键词，请根据实际响应体内容手动添加替换规则
+
+(function() {
+    var body = $response.body;
+    if (!body) { $done({ body }); return; }
+
+    // TODO: 根据实际广告内容添加正则替换
+    // 示例：body = body.replace(/广告关键词/g, "");
+
+    $done({ body });
+})();
+"""
+        }
+
+        // 生成关键词检测代码（快速预判，不含关键词直接返回）
+        var 检测代码 = ""
+        var 替换代码 = ""
+        for (索引, 关键词) in 关键词列表.enumerated() {
+            let 变量名 = "needAd\(索引 + 1)"
+            检测代码 += "    var \(变量名) = body.indexOf(\(关键词.debugDescription)) !== -1;\n"
+            // 生成简单的全局替换（转义正则特殊字符）
+            let 转义关键词 = 转义正则特殊字符(关键词)
+            替换代码 += "    if (\(变量名)) { body = body.replace(/\(转义关键词)/g, \"\"); }\n"
+        }
+
+        // 生成快速返回条件（所有关键词都不命中时直接返回）
+        let 快速返回条件 = 关键词列表.enumerated().map { "!needAd\($0.offset + 1)" }.joined(separator: " && ")
+
+        return """
+// 广告屏蔽脚本（文本替换式，共\(关键词列表.count)个关键词）
+// 适用于HTML/JS等非JSON响应体，采用关键词检测+正则替换方式
+// 注意：自动生成的是基础替换模板，复杂广告格式请根据实际情况调整正则
+
+(function() {
+    var body = $response.body;
+    if (!body) { $done({ body }); return; }
+
+    // 快速预判：不含关键词就不处理，直接返回
+\(检测代码)
+    if (\(快速返回条件)) {
+        return $done({ body });
+    }
+
+    // 命中关键词后执行替换
+\(替换代码)
+    console.log("✅ 广告清理完毕");
+    $done({ body });
+})();
+"""
+    }
+
+    /// 转义正则表达式特殊字符
+    private func 转义正则特殊字符(_ 文本: String) -> String {
+        let 特殊字符 = [".", "*", "+", "?", "^", "$", "(", ")", "[", "]", "{", "}", "|", "\\", "/"]
+        var 结果 = 文本
+        for 字符 in 特殊字符 {
+            结果 = 结果.replacingOccurrences(of: 字符, with: "\\\(字符)")
+        }
+        return 结果
     }
 }

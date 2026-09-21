@@ -47,15 +47,19 @@ enum 智能分析服务 {
     struct 分析结果 {
         /// 识别到的会员相关字段
         var 会员字段: [识别字段] = []
-        /// 识别到的广告相关字段
+        /// 识别到的广告相关字段（JSON格式）
         var 广告字段: [识别字段] = []
         /// 识别到的用户核心信息字段
         var 用户核心字段: [识别字段] = []
         /// 原始数据格式
         var 数据格式: String = "未知"
+        /// 是否是JSON格式响应体
+        var 是否JSON = false
+        /// 非JSON文本中识别到的广告关键词（用于正则替换式广告屏蔽）
+        var 文本广告关键词: [String] = []
         /// 是否识别到有效信息
         var 有结果: Bool {
-            !会员字段.isEmpty || !广告字段.isEmpty || !用户核心字段.isEmpty
+            !会员字段.isEmpty || !广告字段.isEmpty || !用户核心字段.isEmpty || !文本广告关键词.isEmpty
         }
     }
 
@@ -363,17 +367,29 @@ enum 智能分析服务 {
         // 尝试解析为JSON
         if let json对象 = 解析JSON(清洗文本) {
             结果.数据格式 = "JSON"
+            结果.是否JSON = true
             遍历JSON对象(对象: json对象, 路径前缀: "", 结果: &结果)
         }
         // 尝试从cURL命令中提取JSON
         else if let json子串 = 从文本提取JSON(清洗文本), let json对象 = 解析JSON(json子串) {
             结果.数据格式 = "cURL/文本（含JSON）"
+            结果.是否JSON = true
             遍历JSON对象(对象: json对象, 路径前缀: "", 结果: &结果)
         }
-        // 纯文本键值对
+        // 纯文本/HTML/JS：搜索广告关键词，用于正则替换式广告屏蔽
         else {
-            结果.数据格式 = "纯文本"
+            结果.数据格式 = "纯文本/HTML/JS"
+            结果.是否JSON = false
             分析纯文本(文本: 清洗文本, 结果: &结果)
+            // 搜索广告关键词在文本中的出现（去重）
+            let 所有广告关键词 = 广告标记关键词 + 广告资源关键词 + 广告数组关键词
+            var 找到的关键词 = Set<String>()
+            for 关键词 in 所有广告关键词 {
+                if 清洗文本.localizedCaseInsensitiveContains(关键词) {
+                    找到的关键词.insert(关键词)
+                }
+            }
+            结果.文本广告关键词 = Array(找到的关键词).sorted()
         }
 
         return 结果
