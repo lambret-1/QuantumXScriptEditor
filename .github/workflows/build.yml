@@ -58,21 +58,28 @@ jobs:
 
           APP_PATH="build/Build/Products/Release-iphoneos/QuantumXScriptEditor.app"
 
-          # 【关键修复】未签名编译时Xcode不会自动embed共享扩展，需手动复制到.app/PlugIns目录
+          # 【关键修复】未签名编译时Xcode可能不自动embed共享扩展，需确保.app/PlugIns目录中有ShareExtension.appex
           # 否则IPA安装时校验失败，提示"无法安装"
           PLUGINS_DIR="$APP_PATH/PlugIns"
           mkdir -p "$PLUGINS_DIR"
-          # 查找共享扩展的.appex文件
-          SHARE_EXT_PATH=$(find build/Build/Products/Release-iphoneos -name "ShareExtension.appex" -type d | head -1)
-          if [ -n "$SHARE_EXT_PATH" ]; then
-            echo "找到共享扩展: $SHARE_EXT_PATH"
-            cp -R "$SHARE_EXT_PATH" "$PLUGINS_DIR/"
-            echo "已复制共享扩展到 $PLUGINS_DIR"
-            # 验证复制结果
-            ls -la "$PLUGINS_DIR/"
+          # 检查PlugIns目录中是否已有共享扩展
+          if [ -d "$PLUGINS_DIR/ShareExtension.appex" ]; then
+            echo "共享扩展已存在于PlugIns目录，无需复制"
           else
-            echo "警告：未找到ShareExtension.appex，共享扩展可能未被正确构建"
+            echo "PlugIns目录中未找到共享扩展，开始查找..."
+            # 查找共享扩展的.appex文件
+            SHARE_EXT_PATH=$(find build/Build/Products/Release-iphoneos -name "ShareExtension.appex" -type d | grep -v "PlugIns" | head -1)
+            if [ -n "$SHARE_EXT_PATH" ]; then
+              echo "找到共享扩展: $SHARE_EXT_PATH"
+              cp -R "$SHARE_EXT_PATH" "$PLUGINS_DIR/"
+              echo "已复制共享扩展到 $PLUGINS_DIR"
+            else
+              echo "警告：未找到ShareExtension.appex，共享扩展可能未被正确构建"
+            fi
           fi
+          # 验证PlugIns目录内容
+          echo "PlugIns目录内容:"
+          ls -la "$PLUGINS_DIR/"
 
           # 验证主二进制架构（确保包含arm64）
           echo "检查主二进制架构:"
