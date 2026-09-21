@@ -423,6 +423,7 @@ final class 脚本测试视图模型: ObservableObject {
     }
 
     /// 生成广告屏蔽脚本（将所有识别到的广告字段设为空值）
+    /// 优化版：父路径检查去重、精简日志，生成代码更简洁高效
     /// - Returns: 生成的完整圈X脚本代码
     func 生成广告屏蔽脚本() -> String {
         guard let 结果 = 广告分析结果, !结果.广告字段.isEmpty else {
@@ -432,23 +433,35 @@ final class 脚本测试视图模型: ObservableObject {
         let 广告字段列表 = 结果.广告字段
         let 字段数 = 广告字段列表.count
 
-        // 生成字段修改代码
-        var 修改代码 = ""
-        for (索引, 字段) in 广告字段列表.enumerated() {
+        // 第一步：收集所有需要的父路径（去重），生成统一的对象存在性检查代码
+        var 父路径集合 = Set<String>()
+        for 字段 in 广告字段列表 {
             let 路径部分 = 字段.字段路径.components(separatedBy: ".")
             guard 路径部分.count >= 2 else { continue }
-
-            // 生成对象存在性检查和修改代码
-            var 检查代码 = ""
+            // 收集所有中间父路径（如 body.data, body.data.user）
             var 访问路径 = "body"
             for i in 0..<(路径部分.count - 1) {
                 访问路径 += ".\(路径部分[i])"
-                检查代码 += "        if (!\(访问路径) || typeof \(访问路径) !== \"object\" || Array.isArray(\(访问路径))) \(访问路径) = {};\n"
+                父路径集合.insert(访问路径)
             }
+        }
 
-            // 字段名
+        // 生成统一的父路径检查代码（去重后，每个路径只检查一次）
+        var 检查代码 = ""
+        // 按路径长度排序，确保先检查外层再检查内层
+        let 排序父路径 = 父路径集合.sorted { $0.components(separatedBy: ".").count < $1.components(separatedBy: ".").count }
+        for 路径 in 排序父路径 {
+            检查代码 += "        if (!\(路径) || typeof \(路径) !== \"object\" || Array.isArray(\(路径))) \(路径) = {};\n"
+        }
+
+        // 第二步：生成字段修改代码（不再每个字段重复检查父路径）
+        var 修改代码 = ""
+        for 字段 in 广告字段列表 {
+            let 路径部分 = 字段.字段路径.components(separatedBy: ".")
+            guard 路径部分.count >= 2 else { continue }
             let 字段名 = 路径部分.last!
-            let 完整路径 = 字段.字段路径.replacingOccurrences(of: ".", with: "")
+            // 父路径（不含最后一个字段名）
+            let 父路径 = "body." + 路径部分.dropLast().joined(separator: ".")
 
             // 根据字段类型设置空值
             var 空值 = "{}"
@@ -460,66 +473,33 @@ final class 脚本测试视图模型: ObservableObject {
                 空值 = "[]"
             }
 
-            修改代码 += 检查代码
-            修改代码 += "        \(访问路径).\(字段名) = \(空值);\n"
-            修改代码 += "        console.log(\"✅ [广告\(索引 + 1)/\(字段数)] 已屏蔽：\(字段.字段路径) = \(空值)\");\n"
+            修改代码 += "        \(父路径).\(字段名) = \(空值);\n"
         }
 
-        // 生成完整脚本
+        // 生成完整脚本（精简版：减少冗余日志和注释）
         let 脚本 = """
-// ======================
-// 功能：广告屏蔽脚本（一键生成）
-// 共识别到\(字段数)个广告字段，自动设为空值
-// 遵循圈X实战标准流程：IIFE包裹→响应检查→非JSON放行→try-catch→修改→$done返回
-// ======================
+// 广告屏蔽脚本（一键生成，共\(字段数)个字段）
+// 遵循圈X标准流程：IIFE→响应检查→非JSON放行→try-catch→修改→$done返回
 
 (function() {
-    // 定义一个匿名函数，并立即执行（IIFE），作用是隔离变量，避免污染全局环境
-    console.log("🚀 [1] 广告屏蔽脚本触发！共识别到\(字段数)个广告字段");
-
-    // 1. 检查响应对象是否存在
-    if (typeof $response === 'undefined' || $response === null) {
-        console.log("❌ [错误] $response 未定义！请在圈X的 [rewrite_local] 里使用 script-response-body");
-        $done({}); return;
-    }
-
+    if (typeof $response === 'undefined' || $response === null) { $done({}); return; }
     var 原始响应体 = $response.body;
-    if (!原始响应体) {
-        console.log("⚠️ [错误] 响应体为空！可能接口返回了 204/304，或者需要开启 MitM");
-        $done({}); return;
-    }
-    console.log("📦 [2] 成功获取 Body，长度: " + 原始响应体.length);
-
-    // 2. 判断是不是JSON（非JSON直接放行，不破坏页面）
+    if (!原始响应体) { $done({}); return; }
+    // 非JSON直接放行
     var contentType = ($response.headers && $response.headers["Content-Type"]) || "";
-    var isJson = contentType.indexOf("json") !== -1 ||
-                 (原始响应体.charAt(0) === "{" || 原始响应体.charAt(0) === "[");
-    if (!isJson) {
-        console.log("⚠️ 非 JSON 响应（网页/图片等），直接放行");
+    if (contentType.indexOf("json") === -1 && 原始响应体.charAt(0) !== "{" && 原始响应体.charAt(0) !== "[") {
         $done({}); return;
     }
-    console.log("✅ [2.1] 确认是 JSON 响应");
-
-    // ====== 核心修改函数 ======
-    function 执行广告屏蔽(body) {
-        console.log("🧹 [3] 开始执行广告屏蔽，共\(字段数)个字段");
-
-\(修改代码)
-        console.log("🎉 [4] 广告屏蔽执行完毕！");
-        return body;
-    }
-
     try {
         var body = JSON.parse(原始响应体);
-        console.log("✅ [2.2] JSON 解析成功");
-
-        // 调用核心修改函数
-        body = 执行广告屏蔽(body);
-
-        console.log("🎉 [5] 脚本执行成功！准备返回修改后的响应");
+        // 确保父路径对象存在
+\(检查代码)
+        // 屏蔽广告字段
+\(修改代码)
+        console.log("✅ 广告屏蔽完成，共\(字段数)个字段");
         $done({ body: JSON.stringify(body) });
     } catch (e) {
-        console.log("❌ [异常] 解析失败：" + e + "，原样放行");
+        console.log("❌ 解析失败：" + e + "，原样放行");
         $done({ body: 原始响应体 });
     }
 })();
