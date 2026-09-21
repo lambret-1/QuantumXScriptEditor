@@ -464,7 +464,7 @@ final class 脚本测试视图模型: ObservableObject {
 
         // 生成字段修改代码
         var 修改代码 = ""
-        for 字段 in 广告字段列表 {
+        for (索引, 字段) in 广告字段列表.enumerated() {
             let 路径部分 = 字段.字段路径.components(separatedBy: ".")
             // 【修复】支持顶层字段（路径只有一级，如 body.ad），不再跳过
             let 字段名 = 路径部分.last!
@@ -495,6 +495,7 @@ final class 脚本测试视图模型: ObservableObject {
             }
 
             修改代码 += "        \(父路径).\(字段名) = \(空值);\n"
+            修改代码 += "        console.log(\"  [\(索引 + 1)/\(字段数)] 已屏蔽：\(字段.字段路径) = \(空值)\");\n"
         }
 
         return """
@@ -502,21 +503,27 @@ final class 脚本测试视图模型: ObservableObject {
 // 遵循圈X标准流程：IIFE→响应检查→非JSON放行→try-catch→修改→$done返回
 
 (function() {
-    if (typeof $response === 'undefined' || $response === null) { $done({}); return; }
+    console.log("🚀 [1] 广告屏蔽脚本触发，共识别到\(字段数)个广告字段");
+    if (typeof $response === 'undefined' || $response === null) { console.log("❌ $response未定义"); $done({}); return; }
     var 原始响应体 = $response.body;
-    if (!原始响应体) { $done({}); return; }
+    if (!原始响应体) { console.log("❌ 响应体为空"); $done({}); return; }
+    console.log("📦 [2] 获取响应体成功，长度: " + 原始响应体.length);
     // 非JSON直接放行
     var contentType = ($response.headers && $response.headers["Content-Type"]) || "";
     if (contentType.indexOf("json") === -1 && 原始响应体.charAt(0) !== "{" && 原始响应体.charAt(0) !== "[") {
+        console.log("⚠️ 非JSON响应，直接放行");
         $done({}); return;
     }
+    console.log("✅ [3] 确认是JSON响应");
     try {
         var body = JSON.parse(原始响应体);
+        console.log("✅ [4] JSON解析成功");
         // 确保父路径对象存在
 \(检查代码)
+        console.log("🧹 [5] 开始屏蔽广告字段...");
         // 屏蔽广告字段
 \(修改代码)
-        console.log("✅ 广告屏蔽完成，共\(字段数)个字段");
+        console.log("🎉 [6] 广告屏蔽完成，共清空\(字段数)个广告字段");
         $done({ body: JSON.stringify(body) });
     } catch (e) {
         console.log("❌ 解析失败：" + e + "，原样放行");
@@ -554,7 +561,7 @@ final class 脚本测试视图模型: ObservableObject {
             检测代码 += "    var \(变量名) = body.indexOf(\(关键词.debugDescription)) !== -1;\n"
             // 生成简单的全局替换（转义正则特殊字符）
             let 转义关键词 = 转义正则特殊字符(关键词)
-            替换代码 += "    if (\(变量名)) { body = body.replace(/\(转义关键词)/g, \"\"); }\n"
+            替换代码 += "    if (\(变量名)) { body = body.replace(/\(转义关键词)/g, \"\"); console.log(\"  [\(索引 + 1)/\(关键词列表.count)] 已清除关键词：\(关键词)\"); }\n"
         }
 
         // 生成快速返回条件（所有关键词都不命中时直接返回）
@@ -566,18 +573,23 @@ final class 脚本测试视图模型: ObservableObject {
 // 注意：自动生成的是基础替换模板，复杂广告格式请根据实际情况调整正则
 
 (function() {
+    console.log("🚀 [1] 广告屏蔽脚本触发，共识别到\(关键词列表.count)个广告关键词");
     var body = $response.body;
-    if (!body) { $done({ body }); return; }
+    if (!body) { console.log("❌ 响应体为空"); $done({ body }); return; }
+    console.log("📦 [2] 获取响应体成功，长度: " + body.length);
 
     // 快速预判：不含关键词就不处理，直接返回
+    console.log("🔍 [3] 开始检测广告关键词...");
 \(检测代码)
     if (\(快速返回条件)) {
+        console.log("⚠️ 未命中任何广告关键词，直接放行");
         return $done({ body });
     }
 
     // 命中关键词后执行替换
+    console.log("🧹 [4] 命中广告关键词，开始清除...");
 \(替换代码)
-    console.log("✅ 广告清理完毕");
+    console.log("🎉 [5] 广告清理完成，共清空\(关键词列表.count)个广告关键词");
     $done({ body });
 })();
 """
