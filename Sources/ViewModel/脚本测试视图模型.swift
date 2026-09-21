@@ -466,14 +466,33 @@ final class 脚本测试视图模型: ObservableObject {
         var 修改代码 = ""
         for 字段 in 广告字段列表 {
             let 路径部分 = 字段.字段路径.components(separatedBy: ".")
-            guard 路径部分.count >= 2 else { continue }
+            // 【修复】支持顶层字段（路径只有一级，如 body.ad），不再跳过
             let 字段名 = 路径部分.last!
-            let 父路径 = "body." + 路径部分.dropLast().joined(separator: ".")
+            let 父路径: String
+            if 路径部分.count >= 2 {
+                父路径 = "body." + 路径部分.dropLast().joined(separator: ".")
+            } else {
+                父路径 = "body"
+            }
 
-            var 空值 = "{}"
-            if 字段.类型 == .广告标记 { 空值 = "0" }
-            else if 字段.类型 == .广告链接 || 字段.类型 == .广告图片 { 空值 = "\"\"" }
-            else if 字段.类型 == .广告数组 { 空值 = "[]" }
+            // 【修复】根据当前值格式智能判断空值类型，避免对象类型(如globalData/appver)被错误设为0
+            let 当前值 = 字段.当前值.trimmingCharacters(in: .whitespacesAndNewlines)
+            var 空值: String
+            if 当前值.hasPrefix("{") {
+                空值 = "{}"  // 对象类型，设为空对象
+            } else if 当前值.hasPrefix("[") {
+                空值 = "[]"  // 数组类型，设为空数组
+            } else if 当前值.hasPrefix("\"") {
+                空值 = "\"\""  // 字符串类型，设为空字符串
+            } else if 字段.类型 == .广告标记 {
+                空值 = "0"  // 布尔/数字标记，设为0
+            } else if 字段.类型 == .广告链接 || 字段.类型 == .广告图片 {
+                空值 = "\"\""  // 链接/图片，设为空字符串
+            } else if 字段.类型 == .广告数组 {
+                空值 = "[]"  // 数组，设为空数组
+            } else {
+                空值 = "{}"  // 默认设为空对象
+            }
 
             修改代码 += "        \(父路径).\(字段名) = \(空值);\n"
         }
