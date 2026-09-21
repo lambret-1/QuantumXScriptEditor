@@ -24,7 +24,7 @@ targets:
       path: Info.plist
       properties:
         CFBundleDisplayName: 圈X脚本编辑器
-        CFBundleShortVersionString: "1.7.9"
+        CFBundleShortVersionString: "1.8.0"
         CFBundleVersion: "1"
         UILaunchScreen: {}
         UIFileSharingEnabled: true
@@ -83,7 +83,7 @@ targets:
       path: Sources/共享扩展/Info.plist
       properties:
         CFBundleDisplayName: 导入到圈X脚本编辑器
-        CFBundleShortVersionString: "1.7.9"
+        CFBundleShortVersionString: "1.8.0"
         CFBundleVersion: "1"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services

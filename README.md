@@ -69,6 +69,12 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.8.0
+- 补充更多广告跳转链接关键词：
+  - 【通用广告跳转】新增adGoto/adOpen/adMore/adDetail/adInfo/adAbout等跳转链接，adClickThrough/adClickTarget/adClickAction/adClickDestination/adClickFinal/adClickLanding/adClickPage/adClickWeb/adClickSite/adClickH5/adClickScheme/adClickIntent/adClickDeeplink/adClickDeepLink/adClickAppLink/adClickUniversalLink/adClickMiniProgram/adClickMiniApp等点击跳转链接
+  - 【各类型广告跳转】新增开屏/横幅/弹窗/悬浮/原生/激励视频/插屏七类广告的完整跳转链接关键词，每类包含Goto/Open/More/Detail/Click/Action/Target/Redirect/Destination/Final/Landing/Page/Web/H5/Scheme/Intent/Deeplink/DeepLink/AppLink/UniversalLink/MiniProgram/MiniApp等20+种跳转字段
+  - 修改文件：Sources/Service/智能分析服务.swift
+
 ### v1.7.9
 - 优化JSON广告屏蔽模板：父子路径去重
   - 【优化】当识别到的广告字段存在父子路径关系时（如 data.globalData 和 data.globalData.pupu），只保留父路径字段，清空父路径即等于清空所有子字段，大幅精简生成的脚本
