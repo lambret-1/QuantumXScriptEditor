@@ -69,6 +69,14 @@ open 圈X脚本编辑器.xcodeproj
 
 ## 版本历史
 
+### v1.8.4
+- 修复iOS无法安装IPA的bug：
+  - 【根因】未签名编译时Xcode不会自动embed共享扩展到.app/PlugIns目录，导致IPA安装时校验失败
+  - 【修复1】CI流水线打包IPA前，手动查找ShareExtension.appex并复制到主App的PlugIns目录
+  - 【修复2】构建时显式指定ARCHS=arm64、ONLY_ACTIVE_ARCH=NO，确保生成的二进制包含arm64架构，兼容所有iOS设备
+  - 【修复3】CI步骤增加架构验证，构建后用lipo -info检查主二进制和扩展二进制的架构
+  - 修改文件：.github/workflows/build.yml
+
 ### v1.8.3
 - 修复静态检查功能视图弹出后不能自动回调的bug：
   - 【修复1】静态检查结果视图添加关闭按钮（右上角xmark.circle.fill），点击后清除检查结果，回到编辑状态，解决检查后结果一直显示无法关闭的问题

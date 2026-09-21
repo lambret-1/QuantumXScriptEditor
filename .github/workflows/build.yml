@@ -39,6 +39,8 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -54,8 +56,33 @@ jobs:
           echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-          # Xcode已自动嵌入共享扩展到.app/PlugIns目录（dependencies中设置embed: true），无需手动复制
           APP_PATH="build/Build/Products/Release-iphoneos/QuantumXScriptEditor.app"
+
+          # 【关键修复】未签名编译时Xcode不会自动embed共享扩展，需手动复制到.app/PlugIns目录
+          # 否则IPA安装时校验失败，提示"无法安装"
+          PLUGINS_DIR="$APP_PATH/PlugIns"
+          mkdir -p "$PLUGINS_DIR"
+          # 查找共享扩展的.appex文件
+          SHARE_EXT_PATH=$(find build/Build/Products/Release-iphoneos -name "ShareExtension.appex" -type d | head -1)
+          if [ -n "$SHARE_EXT_PATH" ]; then
+            echo "找到共享扩展: $SHARE_EXT_PATH"
+            cp -R "$SHARE_EXT_PATH" "$PLUGINS_DIR/"
+            echo "已复制共享扩展到 $PLUGINS_DIR"
+            # 验证复制结果
+            ls -la "$PLUGINS_DIR/"
+          else
+            echo "警告：未找到ShareExtension.appex，共享扩展可能未被正确构建"
+          fi
+
+          # 验证主二进制架构（确保包含arm64）
+          echo "检查主二进制架构:"
+          lipo -info "$APP_PATH/QuantumXScriptEditor" || echo "警告：lipo检查失败"
+
+          # 验证扩展二进制架构
+          if [ -d "$PLUGINS_DIR/ShareExtension.appex" ]; then
+            echo "检查扩展二进制架构:"
+            lipo -info "$PLUGINS_DIR/ShareExtension.appex/ShareExtension" || echo "警告：扩展二进制lipo检查失败"
+          fi
 
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
