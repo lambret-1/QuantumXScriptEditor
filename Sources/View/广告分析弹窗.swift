@@ -227,9 +227,9 @@ private struct 广告字段行: View {
 }
 
 /// 简单的换行布局视图（用于展示关键词标签云）
-struct 换行布局<数据: RandomAccessCollection, 内容: View>: View where 数据.Element: Hashable {
+struct 换行布局<数据: RandomAccessCollection, 内容类型: View>: View where 数据.Element: Hashable {
     let 项目: 数据
-    let 内容: (数据.Element) -> 内容
+    let 内容: (数据.Element) -> 内容类型
 
     var body: some View {
         // 使用LazyVGrid实现自适应换行布局
